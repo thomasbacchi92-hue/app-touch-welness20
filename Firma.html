@@ -54,9 +54,10 @@
 <div class="content">
     <div id="loginScreen">
         <h3 style="margin-top:0; color:#94a3b8;">Collega Dispositivo</h3>
-        <input type="text" id="strId" placeholder="Username (Codice SPA)">
+        <input type="text" id="strId" placeholder="Username (ID Struttura)">
         <input type="password" id="usrPass" placeholder="Password Tablet">
         <button class="btn btn-purple" onclick="effettuaLogin()">ACCEDI</button>
+        <p style="font-size:11px; color:#64748b; margin-top:10px;">Questa password si imposta dal PC in Reception cliccando il pulsante viola "TABLET".</p>
     </div>
 
     <div id="waitScreen" style="display: none; flex-direction: column; align-items: center;">
@@ -98,10 +99,7 @@
     };
     if (!firebase.apps.length) firebase.initializeApp(fbConfig);
 
-    // ======================================================================
-    // LINK UFFICIALE DELLO SCRIPT GOOGLE DRIVE (MEMORIZZATO)
-    const SERVER_URL = 'https://script.google.com/macros/s/AKfycbx1EPW47IfK5F2LBZpkxep-7tKiqC-eaZfSVUD9NCM5mT_FscPmPLiYHd45XnniPQZWiA/exec;
-    // ======================================================================
+    const SERVER_URL = 'https://script.google.com/macros/s/AKfycbx1EPW47IfK5F2LBZpkxep-7tKiqC-eaZfSVUD9NCM5mT_FscPmPLiYHd45XnniPQZWiA/exec';
 
     let currentAppId = null; let currentDate = null; let currentDocs = [];
     let canvas, ctx, isDrawing = false;
@@ -119,21 +117,45 @@
         }
     }
 
+    // NUOVO LOGIN "PARLANTE" - Ti dice esattamente dove sbagli
     function effettuaLogin() {
         const s = document.getElementById('strId').value.trim();
         const p = document.getElementById('usrPass').value.trim();
-        if(!s || !p) return alert("Inserisci Username e Password!");
+        if(!s || !p) return alert("Inserisci Username (ID Struttura) e Password!");
+        
         const btn = document.querySelector('#loginScreen .btn-purple');
         btn.innerText = "Verifica..."; btn.disabled = true;
 
-        firebase.database().ref(`MASTER_ADMIN_DB/structures_data/${s}/settings/tabletPass`).once('value').then(snap => {
-            if(snap.val() === p) {
-                localStorage.setItem('tw_firma_sid', s);
+        // Controllo 1: Esiste la struttura digitata?
+        firebase.database().ref(`MASTER_ADMIN_DB/structures_data/${s}`).once('value').then(structSnap => {
+            if(!structSnap.exists()) {
+                alert("❌ Errore ID Struttura!\n\nLa struttura '" + s + "' non esiste. Fai attenzione alle Maiuscole e Minuscole.");
                 btn.innerText = "ACCEDI"; btn.disabled = false;
-                checkLogin();
-            } else {
-                alert("Dati errati."); btn.innerText = "ACCEDI"; btn.disabled = false;
+                return;
             }
+            
+            // Controllo 2: La password coincide?
+            firebase.database().ref(`MASTER_ADMIN_DB/structures_data/${s}/settings/tabletPass`).once('value').then(snap => {
+                const dbPass = snap.val();
+                
+                if(!dbPass) {
+                    alert("❌ Password non configurata!\n\nNon hai ancora impostato una password per questo tablet. Vai sul PC, clicca su 'TABLET' e creane una.");
+                    btn.innerText = "ACCEDI"; btn.disabled = false;
+                    return;
+                }
+
+                if(dbPass === p) {
+                    localStorage.setItem('tw_firma_sid', s);
+                    btn.innerText = "ACCEDI"; btn.disabled = false;
+                    checkLogin();
+                } else {
+                    alert("❌ Password Errata!\n\nHai digitato la password sbagliata per il Tablet della struttura " + s + "."); 
+                    btn.innerText = "ACCEDI"; btn.disabled = false;
+                }
+            });
+        }).catch(err => {
+            alert("❌ Errore di connessione a Internet o Database: " + err.message);
+            btn.innerText = "ACCEDI"; btn.disabled = false;
         });
     }
 
@@ -179,7 +201,6 @@
         const rect = canvas.parentElement.getBoundingClientRect();
         canvas.width = rect.width; canvas.height = rect.height;
         
-        // FIX SFONDO NERO: Coloriamo esplicitamente la tela di BIANCO prima di disegnare!
         ctx.fillStyle = "#ffffff";
         ctx.fillRect(0, 0, canvas.width, canvas.height);
 
@@ -239,7 +260,7 @@
             btn.innerHTML = '<i class="material-icons-round">cloud_upload</i> CONFERMA FIRMA'; btn.disabled = false;
             pulisciFirma(); chiudiFirma();
         }).catch(err => {
-            alert('ERRORE SERVER: ' + err.message + '\n\nSe usi Google Script, ricordati che dopo ogni modifica devi cliccare in alto a destra su "Distribuisci" -> "Nuova Implementazione" (e non "Gestisci"!).');
+            alert('ERRORE SERVER: ' + err.message + '\n\nSe usi Google Script, ricordati che dopo ogni modifica devi cliccare in alto a destra su "Distribuisci" -> "Nuova Implementazione".');
             btn.innerHTML = '<i class="material-icons-round">cloud_upload</i> RIPROVA'; btn.disabled = false;
         });
     }
@@ -248,4 +269,3 @@
 </script>
 </body>
 </html>
-
