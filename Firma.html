@@ -74,7 +74,7 @@
             <ul id="docListUI"></ul>
         </div>
 
-        <button class="btn btn-green" onclick="apriFirma()"><i class="material-icons-round">draw</i> APRI E FIRMA TUTTO</button>
+        <button class="btn-green btn" onclick="apriFirma()"><i class="material-icons-round">draw</i> APRI E FIRMA TUTTO</button>
     </div>
 </div>
 
@@ -99,7 +99,8 @@
     if (!firebase.apps.length) firebase.initializeApp(fbConfig);
 
     // ======================================================================
-    const GOOGLE_SCRIPT_URL = 'INCOLLA_QUI_IL_TUO_LINK_GOOGLE';
+    // INCOLLA QUI IL TUO LINK DEL WEBHOOK (MAKE O GOOGLE SCRIPT)
+    const SERVER_URL = "https://script.google.com/macros/s/AKfycbx1EPW47IfK5F2LBZpkxep-7tKiqC-eaZfSVUD9NCM5mT_FscPmPLiYHd45XnniPQZWiA/exec";
     // ======================================================================
 
     let currentAppId = null; let currentDate = null; let currentDocs = [];
@@ -144,7 +145,7 @@
             if(data && data.status === 'pending') {
                 currentAppId = data.appId;
                 currentDate = data.date;
-                currentDocs = data.docs || ["Consenso Trattamenti Base"]; // Legge l'array dei documenti!
+                currentDocs = data.docs || ["Consenso Trattamenti Base"]; 
                 
                 firebase.database().ref(`MASTER_ADMIN_DB/structures_data/${sId}/app/${currentDate}`).once('value').then(appSnap => {
                     let apps = appSnap.val() || [];
@@ -153,7 +154,6 @@
                     
                     document.getElementById('docClientName').innerText = myApp ? myApp.cog : 'Cliente in SPA';
                     
-                    // Popola la lista a schermo
                     let listHtml = "";
                     currentDocs.forEach(doc => { listHtml += `<li>${doc}</li>`; });
                     document.getElementById('docListUI').innerHTML = listHtml;
@@ -193,31 +193,48 @@
 
     function inviaFirma() {
         const btn = document.getElementById('btnSendSig'); 
-        btn.innerText = 'GENERAZIONE PDF...'; btn.disabled = true;
+        btn.innerText = 'ATTENDI PDF...'; btn.disabled = true;
         const base64 = canvas.toDataURL();
         const sId = localStorage.getItem('tw_firma_sid');
         
-        fetch(GOOGLE_SCRIPT_URL, {
+        fetch(SERVER_URL, {
             method: 'POST',
             headers: { 'Content-Type': 'text/plain;charset=utf-8' },
             body: JSON.stringify({ 
                 appId: currentAppId, 
                 image: base64, 
                 now: new Date().toLocaleString('it-IT'),
-                docs: currentDocs // Invia l'array al server Google!
+                docs: currentDocs
             })
         })
-        .then(res => { if (!res.ok) throw new Error("Errore " + res.status); return res.json(); })
+        .then(async res => { 
+            // Accetta qualsiasi risposta (JSON da Google Script o Testo grezzo da Make.com)
+            const textResponse = await res.text();
+            try {
+                return JSON.parse(textResponse);
+            } catch(e) {
+                return { url: textResponse }; 
+            }
+        })
         .then(data => {
-            if(data.error) throw new Error(data.error);
-            firebase.database().ref(`MASTER_ADMIN_DB/structures_data/${sId}/device_sync/tablet`).update({ status: 'completed', driveLink: data.url });
+            // Controlla qual è la variabile che contiene il link (Make.com usa spesso fileUrl, Google usa url)
+            const finalLink = data.url || data.fileUrl || data.link || "";
+            
+            // SISTEMA ANTI-404: Se il link non contiene "http", blocca tutto!
+            if(!finalLink || finalLink === "undefined" || !finalLink.includes("http")) {
+                throw new Error("Errore 404 Prevenuto: Il server (Make/Google) ha generato la pratica ma non ha restituito il link del PDF.");
+            }
+
+            firebase.database().ref(`MASTER_ADMIN_DB/structures_data/${sId}/device_sync/tablet`).update({ status: 'completed', driveLink: finalLink });
+            
             btn.innerHTML = '<i class="material-icons-round">cloud_upload</i> CONFERMA FIRMA'; btn.disabled = false;
             pulisciFirma(); chiudiFirma();
         }).catch(err => {
-            alert('Errore Google Script: ' + err.message);
-            btn.innerHTML = '<i class="material-icons-round">cloud_upload</i> CONFERMA FIRMA'; btn.disabled = false;
+            alert('ATTENZIONE: ' + err.message);
+            btn.innerHTML = '<i class="material-icons-round">cloud_upload</i> RIPROVA'; btn.disabled = false;
         });
     }
+    
     document.addEventListener('DOMContentLoaded', checkLogin);
 </script>
 </body>
