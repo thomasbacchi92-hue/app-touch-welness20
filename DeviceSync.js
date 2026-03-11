@@ -1,4 +1,4 @@
-/* DeviceSync.js - Ponte Radio Multi-Firma v3.0 (Anti-404) */
+/* DeviceSync.js - Ponte Radio Multi-Firma v4.0 (Anti-404 + CRM Globale) */
 window.DeviceSync = {
     initPC: function() {
         if(!window.twStructId) return;
@@ -8,28 +8,70 @@ window.DeviceSync = {
             const data = snap.val();
             if(data && data.status === 'completed') {
                 
-                // Controllo di Sicurezza: Il link deve esistere e iniziare con http
                 if(data.driveLink && data.driveLink.startsWith("http")) {
                     
-                    // Salva nel database dell'appuntamento
+                    // 1. Salva nel database dell'appuntamento specifico
                     if(typeof window.savePrivacyLink === 'function') {
                         window.savePrivacyLink(data.appId, data.date, data.driveLink);
                     }
                     
-                    // Forza l'aggiornamento grafico del bottone VEDI PDF
+                    // 2. SALVA NELL'ANAGRAFICA GLOBALE DEL CLIENTE (CRM)
+                    window.DeviceSync.linkToGlobalCRM(data.appId, data.date, data.driveLink, data.docs);
+
+                    // 3. Aggiorna il bottone "Vedi PDF" in Reception
                     const btnPdf = document.getElementById('uiPrivacyLink');
                     if(btnPdf) {
                         btnPdf.href = data.driveLink;
                         btnPdf.style.display = 'flex';
                     }
                     
-                    if(typeof showToast === 'function') showToast('✅ Documento Firmato e Salvato!');
+                    if(typeof showToast === 'function') showToast('✅ Documento Firmato e Salvato nel CRM!');
                 } else {
-                    alert("⚠️ Firma completata, ma il server non ha generato un PDF valido. Controlla Make.com o Google Script.");
+                    alert("⚠️ Firma completata, ma il server non ha generato un PDF valido.");
                 }
                 
-                // Pulisce il canale radio
-                syncRef.remove();
+                syncRef.remove(); // Pulisce la frequenza radio
+            }
+        });
+    },
+
+    // Funzione intelligente che trova il cliente e gli allega il documento
+    linkToGlobalCRM: function(appId, date, link, docsArray) {
+        const sid = window.twStructId;
+        if(!sid) return;
+
+        // Recupera i dati dell'appuntamento appena firmato per capire chi è l'ospite
+        firebase.database().ref(`MASTER_ADMIN_DB/structures_data/${sid}/app/${date}`).once('value').then(snap => {
+            let apps = snap.val() || [];
+            if(!Array.isArray(apps)) apps = Object.values(apps);
+            let myApp = apps.find(a => a && a.id === appId);
+
+            if(myApp && myApp.cog) {
+                const nomeCliente = myApp.cog.trim().toLowerCase();
+
+                // Cerca questo nome nell'archivio clienti globale
+                firebase.database().ref('MASTER_ADMIN_DB/global_customers').once('value').then(cSnap => {
+                    const customers = cSnap.val() || {};
+                    let targetCustId = null;
+
+                    for(let cid in customers) {
+                        if(customers[cid].nome && customers[cid].nome.trim().toLowerCase() === nomeCliente) {
+                            targetCustId = cid; 
+                            break;
+                        }
+                    }
+
+                    // Se il cliente esiste nel CRM, inietta il documento nel suo profilo!
+                    if(targetCustId) {
+                        const docName = docsArray && docsArray.length > 0 ? "Multi-Firma: " + docsArray.join(', ') : "Consenso Privacy e Trattamenti SPA";
+                        firebase.database().ref(`MASTER_ADMIN_DB/global_customers/${targetCustId}/docs`).push({
+                            dataInserimento: new Date().toLocaleString('it-IT'),
+                            nomeDoc: docName,
+                            link: link,
+                            structId: sid
+                        });
+                    }
+                });
             }
         });
     },
@@ -47,7 +89,6 @@ window.DeviceSync = {
     }
 };
 
-// Avvia l'ascolto in automatico solo se siamo nella pagina della Reception (Agenda)
 document.addEventListener('DOMContentLoaded', () => { 
     const url = window.location.href.toLowerCase();
     if(!url.includes('mobile.html') && !url.includes('firma.html') && !url.includes('admin')) {
