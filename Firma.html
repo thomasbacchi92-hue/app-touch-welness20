@@ -99,7 +99,7 @@
     if (!firebase.apps.length) firebase.initializeApp(fbConfig);
 
     // ======================================================================
-    // INCOLLA QUI IL TUO LINK DEL WEBHOOK (MAKE O GOOGLE SCRIPT)
+    // LINK UFFICIALE DELLO SCRIPT GOOGLE DRIVE (MEMORIZZATO)
     const SERVER_URL = 'https://script.google.com/macros/s/AKfycbx1EPW47IfK5F2LBZpkxep-7tKiqC-eaZfSVUD9NCM5mT_FscPmPLiYHd45XnniPQZWiA/exec';
     // ======================================================================
 
@@ -178,6 +178,11 @@
         ctx = canvas.getContext('2d');
         const rect = canvas.parentElement.getBoundingClientRect();
         canvas.width = rect.width; canvas.height = rect.height;
+        
+        // FIX SFONDO NERO: Coloriamo esplicitamente la tela di BIANCO prima di disegnare!
+        ctx.fillStyle = "#ffffff";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
         ctx.lineWidth = 4; ctx.lineCap = 'round'; ctx.strokeStyle = '#0f172a';
         
         const getPos = (e) => { const rect = canvas.getBoundingClientRect(); const evt = e.touches ? e.touches[0] : e; return { x: evt.clientX - rect.left, y: evt.clientY - rect.top }; };
@@ -189,7 +194,13 @@
         canvas.addEventListener('touchstart', startDraw, {passive: false}); canvas.addEventListener('touchmove', draw, {passive: false}); canvas.addEventListener('touchend', stopDraw);
     }
 
-    function pulisciFirma() { if(ctx) ctx.clearRect(0, 0, canvas.width, canvas.height); }
+    function pulisciFirma() { 
+        if(ctx) {
+            ctx.clearRect(0, 0, canvas.width, canvas.height); 
+            ctx.fillStyle = "#ffffff";
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+        }
+    }
 
     function inviaFirma() {
         const btn = document.getElementById('btnSendSig'); 
@@ -205,10 +216,10 @@
                 image: base64, 
                 now: new Date().toLocaleString('it-IT'),
                 docs: currentDocs
-            })
+            }),
+            redirect: "follow"
         })
         .then(async res => { 
-            // Accetta qualsiasi risposta (JSON da Google Script o Testo grezzo da Make.com)
             const textResponse = await res.text();
             try {
                 return JSON.parse(textResponse);
@@ -217,12 +228,10 @@
             }
         })
         .then(data => {
-            // Controlla qual è la variabile che contiene il link (Make.com usa spesso fileUrl, Google usa url)
             const finalLink = data.url || data.fileUrl || data.link || "";
             
-            // SISTEMA ANTI-404: Se il link non contiene "http", blocca tutto!
             if(!finalLink || finalLink === "undefined" || !finalLink.includes("http")) {
-                throw new Error("Errore 404 Prevenuto: Il server (Make/Google) ha generato la pratica ma non ha restituito il link del PDF.");
+                throw new Error("Errore 404 Prevenuto: Il server ha generato la pratica ma non ha restituito il link del PDF.");
             }
 
             firebase.database().ref(`MASTER_ADMIN_DB/structures_data/${sId}/device_sync/tablet`).update({ status: 'completed', driveLink: finalLink });
@@ -230,7 +239,7 @@
             btn.innerHTML = '<i class="material-icons-round">cloud_upload</i> CONFERMA FIRMA'; btn.disabled = false;
             pulisciFirma(); chiudiFirma();
         }).catch(err => {
-            alert('ATTENZIONE: ' + err.message);
+            alert('ERRORE SERVER: ' + err.message + '\n\nSe usi Google Script, ricordati che dopo ogni modifica devi cliccare in alto a destra su "Distribuisci" -> "Nuova Implementazione" (e non "Gestisci"!).');
             btn.innerHTML = '<i class="material-icons-round">cloud_upload</i> RIPROVA'; btn.disabled = false;
         });
     }
@@ -239,4 +248,3 @@
 </script>
 </body>
 </html>
-
