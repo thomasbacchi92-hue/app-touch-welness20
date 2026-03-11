@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Chat Struttura - TOUCH WELNESS</title>
+<link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
+<script src="Core.js"></script>
+<script src="Menu.js"></script>
+<style>
+  :root { --primary: #0f172a; --accent: #38bdf8; --purple: #a855f7; --gold: #fbbf24; --bg: #f8fafc; }
+  body { font-family: -apple-system, sans-serif; background: #e5ddd5; margin: 0; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+  
+  .navbar { background: var(--primary); color: white; padding: 15px 20px; display: flex; justify-content: space-between; align-items: center; z-index: 20; box-shadow: 0 4px 10px rgba(0,0,0,0.1); width: 100%; box-sizing: border-box; flex-shrink: 0; }
+  .btn-menu { background: var(--gold); color: var(--primary); border: none; padding: 10px 15px; border-radius: 8px; font-weight: 800; cursor: pointer; display:flex; align-items:center; gap:8px; font-size: 14px; }
+  
+  .chat-wrapper { display: flex; flex: 1; overflow: hidden; max-width: 1400px; margin: 0 auto; width: 100%; box-shadow: 0 0 20px rgba(0,0,0,0.05); }
+  
+  .sidebar { width: 350px; background: white; border-right: 1px solid #d1d7db; display: flex; flex-direction: column; flex-shrink:0; }
+  .sidebar-header { background: #f0f2f5; padding: 15px; font-weight: bold; color: var(--primary); border-bottom: 1px solid #d1d7db; }
+  .contact-list { overflow-y: auto; flex: 1; }
+  .contact-item { padding: 15px; border-bottom: 1px solid #f2f2f2; cursor: pointer; display: flex; align-items: center; gap: 15px; transition: 0.2s; }
+  .contact-item:hover, .contact-item.active { background: #f0f2f5; }
+  .avatar { width: 45px; height: 45px; border-radius: 50%; background: var(--primary); color: white; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size:20px; }
+  
+  .chat-area { flex: 1; display: flex; flex-direction: column; background: #efeae2; position: relative; }
+  .chat-header { background: #f0f2f5; padding: 15px; display: flex; align-items: center; gap: 15px; border-bottom: 1px solid #d1d7db; font-weight: bold; color: var(--primary); }
+  
+  .messages-pane { flex: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; }
+  .msg-bubble { max-width: 75%; padding: 8px 12px; border-radius: 10px; font-size: 14px; position: relative; box-shadow: 0 1px 1px rgba(0,0,0,0.1); }
+  .msg-received { background: white; align-self: flex-start; border-top-left-radius: 0; }
+  .msg-sent { background: #f3e8ff; align-self: flex-end; border-top-right-radius: 0; border-left: 3px solid var(--purple); }
+  .msg-sender { font-size: 11px; font-weight: bold; color: #0284c7; margin-bottom: 3px; display: block; text-transform:capitalize; }
+  .msg-time { font-size: 10px; color: #667781; text-align: right; margin-top: 4px; display: block; }
+  
+  .input-area { background: #f0f2f5; padding: 15px; display: flex; gap: 10px; align-items: center; }
+  .chat-input { flex: 1; padding: 15px; border: none; border-radius: 20px; outline: none; font-size: 15px; }
+  .send-btn { background: var(--purple); color: white; border: none; width: 50px; height: 50px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+
+  @media (max-width: 768px) {
+      .sidebar { width: 100%; position: absolute; height: 100%; z-index: 10; transition: transform 0.3s ease; }
+      .sidebar.hidden { transform: translateX(-100%); }
+      .chat-area { width: 100%; }
+      .chat-header .back-btn { display: block !important; }
+  }
+</style>
+</head>
+<body>
+
+<div class="navbar">
+    <div style="font-weight:900; color:var(--purple); letter-spacing:1px; font-size:18px;">TOUCH WELNESS <span style="font-size:12px; color:white; font-weight:normal; margin-left:5px">CHAT RECEPTION</span></div>
+    <button class="btn-menu" onclick="window.toggleMenu(event)">MENU <i class="material-icons-round">menu</i></button>
+</div>
+
+<div class="chat-wrapper">
+    <div class="sidebar" id="sidebarContacts">
+        <div class="sidebar-header">Contatti Staff SPA</div>
+        <div class="contact-list" id="contactsList"><div style="padding:20px; text-align:center; color:#64748b">Caricamento contatti in corso...</div></div>
+        <div style="padding:15px; background:white; border-top:1px solid #d1d7db">
+            <button onclick="loadArchive()" style="width:100%; padding:12px; background:#f8fafc; border:1px solid #cbd5e1; border-radius:8px; font-weight:bold; color:var(--primary); cursor:pointer; display:flex; align-items:center; justify-content:center; gap:8px"><i class="material-icons-round" style="color:var(--accent)">inventory</i> ARCHIVIO CHAT</button>
+        </div>
+    </div>
+    <div class="chat-area">
+        <div class="chat-header">
+            <i class="material-icons-round back-btn" style="display:none; cursor:pointer; font-size:28px" onclick="showContacts()">arrow_back</i>
+            <div class="avatar" id="headerAvatar" style="width:40px; height:40px; font-size:18px; background:var(--purple)">?</div>
+            <span id="chatTitle">Seleziona una Chat</span>
+        </div>
+        <div class="messages-pane" id="msgBox">
+            <div style="text-align:center; padding:30px; color:#64748b; font-weight:bold">Scegli un operatore per iniziare a chattare.</div>
+        </div>
+        <div class="input-area" id="inputArea" style="display:none">
+            <input type="text" id="chatInput" class="chat-input" placeholder="Scrivi un messaggio..." onkeypress="if(event.key==='Enter'){ event.preventDefault(); sendMessage(); }">
+            <button class="send-btn" onclick="sendMessage()"><i class="material-icons-round">send</i></button>
+        </div>
+    </div>
+</div>
+
+<script>
+    const myStruct = localStorage.getItem("tw_structure_id");
+    let myUser = localStorage.getItem("tw_user") || "Ricevimento";
+    
+    if(!myStruct) { alert("Sessione Scaduta."); window.location.href="../login.html"; }
+
+    let currentChatType = null; let currentChatId = null; let chatListener = null;
+
+    firebase.database().ref('MASTER_ADMIN_DB/users').once('value').then(snap => {
+        const allUsers = Object.values(snap.val() || {});
+        // La reception vede tutto lo staff appartenente alla propria struttura
+        const myColleagues = allUsers.filter(u => u.structureId === myStruct);
+        
+        let html = `
+            <div class="contact-item" onclick="openChat('public', 'public', 'Gruppo Struttura')">
+                <div class="avatar" style="background:var(--purple)"><i class="material-icons-round">groups</i></div>
+                <div style="font-weight:bold; color:var(--primary)">Gruppo Struttura</div>
+            </div>
+        `;
+        myColleagues.forEach(u => {
+            html += `<div class="contact-item" onclick="openChat('private', '${[myUser, u.nick].sort().join('_')}', '${u.nick}')">
+                        <div class="avatar"><i class="material-icons-round">spa</i></div>
+                        <div style="font-weight:bold; color:var(--primary); text-transform:capitalize">${u.nick.replace(/\\./g, ' ')}</div>
+                     </div>`;
+        });
+        document.getElementById('contactsList').innerHTML = html;
+    }).catch(e => {
+        document.getElementById('contactsList').innerHTML = `<div style="padding:20px; text-align:center; color:#ef4444">Errore di connessione al database. Riprova.</div>`;
+    });
+
+    function showContacts() { document.getElementById('sidebarContacts').classList.remove('hidden'); }
+    function hideContactsOnMobile() { if(window.innerWidth <= 768) document.getElementById('sidebarContacts').classList.add('hidden'); }
+
+    function openChat(type, id, title) {
+        hideContactsOnMobile(); document.getElementById('inputArea').style.display = 'flex';
+        document.getElementById('chatTitle').innerText = title.replace(/\\./g, ' ').toUpperCase();
+        document.getElementById('headerAvatar').innerHTML = type === 'public' ? '<i class="material-icons-round">groups</i>' : '<i class="material-icons-round">spa</i>';
+        
+        if(chatListener) chatListener.off(); currentChatType = type; currentChatId = id;
+        const path = type === 'public' ? 'public' : `private/${id}`;
+        
+        chatListener = firebase.database().ref('MASTER_ADMIN_DB/structures_data').child(myStruct).child('chats').child(path);
+        chatListener.on('value', snap => { if(currentChatType === 'archive') return; renderMessages(Object.values(snap.val() || {})); });
+    }
+
+    function renderMessages(msgs, isArchive = false) {
+        const box = document.getElementById('msgBox');
+        if(msgs.length === 0) { box.innerHTML = "<div style='text-align:center; color:#94a3b8; padding:20px'>Nessun messaggio.</div>"; return; }
+        
+        let html = '';
+        msgs.forEach(m => {
+            const isMe = m.sender === myUser;
+            const alignClass = isMe && !isArchive ? 'msg-sent' : 'msg-received';
+            const contextText = isArchive ? `<b style="color:var(--purple); font-size:9px">[${m.scope}]</b> ` : '';
+            html += `<div class="msg-bubble ${alignClass}"><span class="msg-sender">${contextText}${m.sender}</span>${m.text}<span class="msg-time">${m.date.split(' ')[1]}</span></div>`;
+        });
+        box.innerHTML = html; box.scrollTop = box.scrollHeight;
+    }
+
+    function sendMessage() {
+        const input = document.getElementById('chatInput'); const text = input.value.trim();
+        if(!text || !currentChatType || currentChatType === 'archive') return;
+        
+        const path = currentChatType === 'public' ? 'public' : `private/${currentChatId}`;
+        const msg = { sender: myUser, text: text, timestamp: Date.now(), date: new Date().toLocaleString('it-IT') };
+        
+        firebase.database().ref('MASTER_ADMIN_DB/structures_data').child(myStruct).child('chats').child(path).push(msg);
+        input.value = "";
+    }
+
+    function loadArchive() {
+       hideContactsOnMobile(); currentChatType = 'archive'; if(chatListener) chatListener.off();
+       document.getElementById('chatTitle').innerText = "Archivio Completo Chat"; document.getElementById('headerAvatar').innerHTML = '<i class="material-icons-round">inventory</i>';
+       document.getElementById('inputArea').style.display = 'none';
+       
+       firebase.database().ref('MASTER_ADMIN_DB/structures_data').child(myStruct).child('chats').on('value', snap => {
+           if(currentChatType !== 'archive') return;
+           const chats = snap.val() || {}; let allMsgs = [];
+           if(chats.public) Object.values(chats.public).forEach(m => allMsgs.push({...m, scope: 'Pubblica'}));
+           if(chats.private) { for(let pair in chats.private) { Object.values(chats.private[pair]).forEach(m => allMsgs.push({...m, scope: pair.replace(/_/g, ' ↔ ')})); } }
+           allMsgs.sort((a,b) => a.timestamp - b.timestamp);
+           renderMessages(allMsgs, true);
+       });
+    }
+</script>
+</body>
+</html>

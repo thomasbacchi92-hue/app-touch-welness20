@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Agenda SPA - TOUCH WELNESS</title>
+
+<script>
+    if (/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) && window.innerWidth <= 768) {
+        window.location.replace("Mobile.html");
+    }
+</script>
+
+<link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
+
+<script src="DeviceSync.js"></script>
+<script src="System.js"></script>
+<script src="Menu.js"></script>
+
+<style>
+  :root { 
+      --bg-body: #0f172a; --bg-panel: #1e293b; --border-line: #334155; 
+      --text-main: #f8fafc; --text-muted: #94a3b8; 
+      --accent: #38bdf8; --gold: #fbbf24; --green: #10b981; --red: #ef4444; --purple: #a855f7;
+  }
+  :root.light-theme {
+      --bg-body: #f8fafc; --bg-panel: #ffffff; --border-line: #e2e8f0;
+      --text-main: #0f172a; --text-muted: #64748b;
+  }
+
+  * { box-sizing: border-box; }
+  body { font-family: -apple-system, sans-serif; background: var(--bg-body); margin: 0; display: flex; flex-direction: column; height: 100vh; overflow: hidden; color: var(--text-main); }
+  
+  .navbar { background: var(--bg-body); color: var(--text-main); padding: 12px 20px; display: flex; justify-content: space-between; align-items: center; z-index: 20; border-bottom: 1px solid var(--border-line); flex-shrink: 0; }
+  
+  .btn-menu { background: var(--gold); color: #000; border: none; padding: 8px 15px; border-radius: 8px; font-weight: 900; cursor: pointer; display:flex; align-items:center; gap:5px; font-size: 13px; box-shadow: 0 3px 0 #b45309; transition:0.2s; }
+  .btn-menu:active { transform: translateY(3px); box-shadow: none; }
+
+  .date-ctrl { display: flex; align-items: center; gap: 8px; background: var(--bg-panel); padding: 6px; border-radius: 10px; border: 1px solid var(--border-line); }
+  .btn-arrow { background: var(--accent); color: #0f172a; border: none; cursor: pointer; padding: 5px 8px; display: flex; align-items: center; justify-content: center; border-radius: 6px; }
+  input[type="date"] { border: none; padding: 6px 10px; border-radius: 6px; font-weight: 900; font-size: 16px; outline: none; background: transparent; color: var(--text-main); color-scheme: dark; }
+
+  .layout { display: flex; flex: 1; overflow: hidden; width: 100%; position: relative; }
+  
+  .sidebar { width: 0; background: var(--bg-panel); border-right: 1px solid var(--border-line); transition: width 0.3s ease; overflow-y: auto; display: flex; flex-direction: column; flex-shrink: 0; }
+  .sidebar.active { width: 380px; padding: 25px; border-right: 2px solid var(--accent); }
+  .sidebar.request-mode { border-right-color: var(--purple); }
+  
+  .grid-container { flex: 1; display: flex; gap: 12px; padding: 15px; overflow-x: auto; overflow-y: auto; background: var(--bg-body); position: relative; }
+
+  .colonna { flex: 1; min-width: 280px; background: var(--bg-panel); border-radius: 16px; border: 1px solid var(--border-line); height: fit-content; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.3); }
+  .col-head { background: rgba(0,0,0,0.2); color: var(--text-main); padding: 12px; text-align: center; font-weight: 800; font-size: 13px; border-bottom: 2px solid var(--gold); position: sticky; top: 0; z-index: 2; text-transform: uppercase; }
+  
+  .time-row { display: flex; height: 60px; border-bottom: 1px solid var(--border-line); }
+  .time-lbl { width: 55px; background: rgba(0,0,0,0.1); display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: bold; color: var(--text-muted); border-right: 1px solid var(--border-line); flex-shrink: 0; }
+  
+  .slot { flex: 1; cursor: pointer; position: relative; transition: 0.2s; }
+  .slot:hover { background: rgba(56, 189, 248, 0.05); }
+  
+  .slot.drag-over { background: rgba(56, 189, 248, 0.2) !important; border: 2px dashed var(--accent) !important; z-index: 10; }
+  .app-base.dragging { opacity: 0.5; transform: scale(0.95); }
+
+  .app-base { background: #e0f2fe; color: #0c4a6e; border-left: 5px solid var(--accent); width: calc(100% - 4px); position: absolute; left: 2px; padding: 6px 10px; font-size: 11px; overflow:hidden; border-radius: 6px; box-shadow: 0 4px 10px rgba(0,0,0,0.3); display: flex; justify-content: space-between; align-items: flex-start; z-index: 5; cursor: grab; transition: transform 0.1s; }
+  .app-base:active { cursor: grabbing; }
+  .app-base.eseguito-style { background: #dcfce7; color: #064e3b; border-left-color: var(--green); }
+  
+  .app-base.req-style { background: #f3e8ff; color: #581c87; border-left-color: var(--purple); cursor: pointer; animation: pulseReq 2s infinite; }
+  @keyframes pulseReq { 0% { box-shadow: 0 0 0 0 rgba(168, 85, 247, 0.4); } 70% { box-shadow: 0 0 0 6px rgba(168, 85, 247, 0); } 100% { box-shadow: 0 0 0 0 rgba(168, 85, 247, 0); } }
+
+  .app-info-col { flex: 1; display: flex; flex-direction: column; overflow: hidden; pointer-events: none; }
+  .app-base b { font-size: 13px; color: #0369a1; text-transform: uppercase; margin-bottom: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .app-base.req-style b { color: var(--purple); }
+  
+  .app-busy { background: rgba(0,0,0,0.1); width: 100%; height: 100%; position: absolute; top: 0; left: 0; border-left: 3px solid var(--border-line); z-index: 1; }
+  .app-busy.req-busy { background: rgba(168, 85, 247, 0.1); border-left-color: var(--purple); }
+
+  .app-note-preview { margin-top: 4px; background: rgba(0,0,0,0.1); border-left: 2px solid rgba(255,255,255,0.4); padding: 4px 6px; border-radius: 4px; font-size: 9px; color: #0369a1; font-style: italic; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; font-weight:bold;}
+  .app-base.eseguito-style .app-note-preview { color: #064e3b; }
+  .app-base.req-style .app-note-preview { color: #581c87; }
+
+  .btn-quick-eseg { background: white; border: 2px solid #bae6fd; border-radius: 50%; width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; cursor: pointer; color: var(--accent); transition: 0.2s; flex-shrink: 0; margin-left: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.2); pointer-events: auto; }
+  .app-base.eseguito-style .btn-quick-eseg { background: var(--green); color: white; border-color: var(--green); }
+
+  .zoom-controls { position: fixed; bottom: 20px; right: 20px; background: var(--bg-panel); padding: 8px 15px; border-radius: 30px; border: 1px solid var(--border-line); display: flex; align-items: center; gap: 10px; z-index: 1000; box-shadow: 0 10px 25px rgba(0,0,0,0.5); }
+  .zoom-controls i { cursor: pointer; color: var(--accent); font-size: 24px; user-select: none; transition: 0.2s; }
+  .zoom-controls i:hover { transform: scale(1.1); }
+  .zoom-controls input[type="range"] { width: 100px; accent-color: var(--accent); cursor: pointer; }
+
+  .form-group { margin-bottom: 12px; width: 100%; position: relative; }
+  .form-group label { display: block; font-size: 10px; font-weight: bold; color: var(--text-muted); text-transform: uppercase; margin-bottom: 4px; }
+  .form-input { width: 100%; padding: 12px; border: 1px solid var(--border-line); border-radius: 8px; font-size: 13px; outline:none; background: var(--bg-body); color: var(--text-main); color-scheme: dark; transition:0.2s; box-sizing: border-box; }
+  .form-input:focus { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.3); }
+
+  .note-wrapper { background: var(--bg-body); border: 1px solid var(--border-line); border-radius: 8px; overflow: hidden; margin-bottom: 12px; transition: 0.2s; }
+  .note-wrapper:focus-within { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.3); }
+  .note-header { background: rgba(0,0,0,0.2); padding: 8px 12px; font-size: 10px; font-weight: bold; color: var(--accent); text-transform: uppercase; border-bottom: 1px solid var(--border-line); display: flex; align-items: center; gap: 5px; }
+  .note-wrapper textarea { width: 100%; border: none; background: transparent; color: var(--text-main); padding: 12px; font-size: 13px; font-family: inherit; resize: vertical; outline: none; box-sizing: border-box; }
+
+  .btn-save { width: 100%; padding: 14px; background: var(--accent); color: #0f172a; border: none; border-radius: 8px; font-weight: 900; cursor: pointer; transition: 0.2s; display: flex; align-items: center; justify-content: center; gap: 8px; font-size:13px; box-sizing: border-box; }
+  .btn-save i { font-size: 18px; }
+  .btn-save:hover { transform: translateY(-2px); box-shadow: 0 4px 10px rgba(0,0,0,0.3); }
+  
+  .btn-wa { background: rgba(16, 185, 129, 0.1) !important; color: var(--green) !important; border: 1px solid rgba(16, 185, 129, 0.3) !important; margin-top: 0 !important; }
+  .btn-del { background: rgba(239, 68, 68, 0.1) !important; color: var(--red) !important; border: 1px solid rgba(239, 68, 68, 0.3) !important; margin-top: 0 !important; }
+  .btn-outline { background: transparent !important; color: var(--text-main) !important; border: 1px solid var(--border-line) !important; }
+
+  .switch-container { display: flex; align-items: center; justify-content: space-between; background: var(--bg-body); padding: 12px 15px; border-radius: 8px; border: 1px solid var(--border-line); margin-bottom: 12px; margin-top: 15px; }
+  .switch-lbl { font-size: 12px; font-weight: bold; color: var(--text-main); text-transform: uppercase; margin: 0; }
+  .switch { position: relative; display: inline-block; width: 44px; height: 24px; }
+  .switch input { opacity: 0; width: 0; height: 0; }
+  .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: var(--border-line); transition: .4s; border-radius: 24px; }
+  .slider:before { position: absolute; content: ""; height: 18px; width: 18px; left: 3px; bottom: 3px; background-color: white; transition: .4s; border-radius: 50%; }
+  input:checked + .slider { background-color: var(--green); }
+  input:checked + .slider:before { transform: translateX(20px); }
+
+  .btn-add-service { width: 100%; padding: 12px; background: transparent; color: var(--text-main); border: 1px dashed var(--border-line); border-radius: 8px; font-size: 12px; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; margin-bottom: 10px; }
+  .selected-service-badge { background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.3); border-radius: 8px; padding: 12px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; cursor: pointer; }
+  .selected-service-badge .info b { color: var(--green); display: block; font-size: 13px; margin-bottom: 2px; }
+  .selected-service-badge .info span { color: var(--text-muted); font-size: 10px; font-weight: bold; }
+  .selected-service-badge .icon-del { color: var(--red); background: rgba(239, 68, 68, 0.2); border-radius: 50%; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; }
+
+  .autocomplete-box { display: none; position: absolute; top: 100%; left: 0; width: 100%; background: var(--bg-panel); border: 1px solid var(--border-line); border-radius: 8px; max-height: 150px; overflow-y: auto; z-index: 99; box-shadow: 0 10px 20px rgba(0,0,0,0.5); }
+  .auto-item { padding: 10px; font-size: 12px; border-bottom: 1px solid var(--border-line); cursor: pointer; display: flex; justify-content: space-between; color: var(--text-main); }
+
+  .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 4000; align-items: center; justify-content: center; backdrop-filter: blur(2px); padding: 15px; }
+  .modal-box { background: var(--bg-panel); padding: 25px; border-radius: 16px; width: 90%; max-width: 400px; border: 1px solid var(--border-line); display:flex; flex-direction:column; max-height: 85vh; }
+  .servizi-list-modal { display: flex; flex-direction: column; gap: 8px; flex:1; overflow-y: auto; margin-bottom: 15px; }
+  .serv-item { background: var(--bg-body); border: 1px solid var(--border-line); border-radius: 8px; padding: 12px; display: flex; align-items: center; gap: 10px; cursor: pointer; color: var(--text-main); }
+  .serv-item.active { border-color: var(--accent); background: rgba(56,189,248,0.1); }
+
+  #toastBlue { visibility: hidden; min-width: 250px; background: var(--toast-blue, #2563eb); color: #fff; text-align: center; border-radius: 8px; padding: 16px; position: fixed; z-index: 9999; right: 30px; bottom: 30px; font-size: 13px; font-weight: bold; opacity: 0; transition: 0.5s; box-shadow: 0 10px 20px rgba(0,0,0,0.5); }
+  #toastBlue.show { visibility: visible; opacity: 1; bottom: 40px; }
+
+</style>
+<script>
+    if(localStorage.getItem('tw_theme') === 'light') { document.documentElement.classList.add('light-theme'); }
+</script>
+</head>
+<body onclick="closeSidebar(event)">
+
+<div id="toastBlue"><i class="material-icons-round" style="vertical-align:middle; margin-right:5px">info</i> <span id="toastMsg">Notifica</span></div>
+
+<script>
+    if(!localStorage.getItem("tw_token")) window.location.href="login.html";
+</script>
+
+<div class="navbar">
+  <div style="font-weight:900; color:var(--gold); letter-spacing:1px">TOUCH WELNESS <span style="font-size:10px; color:var(--text-muted)">AGENDA SPA</span></div>
+  <div class="date-ctrl">
+    <button class="btn-arrow" onclick="sysChangeDate(-1)"><i class="material-icons-round">chevron_left</i></button>
+    <input type="date" id="mainDate" onchange="window.render()">
+    <button class="btn-arrow" onclick="sysChangeDate(1)"><i class="material-icons-round">chevron_right</i></button>
+  </div>
+  <div style="display:flex; gap:10px;">
+      <button class="btn-menu" style="background:var(--purple); color:white;" onclick="openTabletSettings()">TABLET <i class="material-icons-round">tablet_mac</i></button>
+      <button class="btn-menu" onclick="window.toggleMenu(event)">MENU <i class="material-icons-round">menu</i></button>
+  </div>
+</div>
+
+<div class="layout">
+    <div class="sidebar" id="sideForm" onclick="event.stopPropagation()">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px; border-bottom:1px solid var(--border-line); padding-bottom:10px;">
+            <h3 style="color:var(--gold); margin:0; text-transform:uppercase;" id="sidebarTitle">Nuovo Appuntamento</h3>
+            <i class="material-icons-round" style="cursor:pointer; color:var(--text-muted);" onclick="closeSidebar(null, true)">close</i>
+        </div>
+        
+        <input type="hidden" id="mId">
+        <input type="hidden" id="mReqId">
+        <input type="hidden" id="reqConfOldOra">
+        <input type="hidden" id="mOldDate">
+        <input type="hidden" id="aCab">
+        
+        <div style="display:flex; gap:10px; align-items:flex-end;">
+            <div class="form-group" style="flex:1"><label>Data</label><input type="date" id="aDate" class="form-input"></div>
+            <div class="form-group" style="flex:1">
+                <label>Orario</label>
+                <div style="display:flex; gap:5px;">
+                    <input type="time" id="aOra" class="form-input" style="font-weight:bold; color:var(--accent); margin-bottom:0;">
+                    <button class="btn-save btn-outline" style="width:auto; padding:0 10px; margin:0;" onclick="window.sysEnableTimePick(event)" title="Cambia Orario in Griglia"><i class="material-icons-round">ads_click</i></button>
+                </div>
+            </div>
+        </div>
+        
+        <div style="display:flex; gap:10px">
+            <div class="form-group" style="flex:1"><label>Camera</label><input type="number" id="aCam" class="form-input" placeholder="N°"></div>
+            <div class="form-group" style="flex:1.5"><label>Telefono</label><input type="tel" id="aTel" class="form-input" placeholder="Opzionale"></div>
+        </div>
+        
+        <div class="form-group">
+            <label>Ospite (Cerca o Scrivi)</label>
+            <input type="text" id="aCog" class="form-input" autocomplete="off" onkeyup="sysCheckCustomerInput()" placeholder="Nome Ospite...">
+            <div id="cogSuggestions" class="autocomplete-box"></div>
+        </div>
+
+        <div class="form-group"><label>Operatore</label><select id="aOp" class="form-input"></select></div>
+
+        <input type="hidden" id="aServ"><input type="hidden" id="aDur" value="30"><input type="hidden" id="aPrice" value="0">
+        <div id="serviceRenderArea">
+            <button class="btn-add-service" onclick="sysOpenServiceSelector()">
+                <i class="material-icons-round" style="color:var(--accent); font-size:18px;">add_circle</i> AGGIUNGI SERVIZIO
+            </button>
+        </div>
+
+        <div class="note-wrapper">
+            <div class="note-header"><i class="material-icons-round" style="font-size:14px">edit_note</i> Note e Comunicazioni</div>
+            <textarea id="aNote" rows="3" placeholder="Aggiungi una nota interna..."></textarea>
+        </div>
+        
+        <div class="switch-container" id="eseguitoSwitchBox">
+            <label class="switch-lbl">TRATTAMENTO ESEGUITO</label>
+            <label class="switch">
+                <input type="checkbox" id="aEseguito">
+                <span class="slider"></span>
+            </label>
+        </div>
+        
+        <div class="privacy-box" style="margin-bottom: 15px; padding: 15px; border: 1px dashed var(--accent); background: rgba(56, 189, 248, 0.05); border-radius: 8px; display: block;" id="uiPrivacyBox">
+            <label style="color:var(--accent); font-weight:bold; font-size:11px; display:block; margin-bottom:10px;"><i class="material-icons-round" style="font-size:14px; vertical-align:middle">verified_user</i> MODULO PRIVACY & FIRMA</label>
+            <div style="display:flex; gap:10px; align-items:center;">
+                <button type="button" class="btn-save btn-outline" style="flex:1; margin:0; font-size:11px; padding:10px;" onclick="window.checkAndSendPrivacy()">
+                    <i class="material-icons-round" style="font-size:16px;">tablet_android</i> INVIA A TABLET
+                </button>
+                <a id="uiPrivacyLink" href="#" target="_blank" class="btn-save" style="display:none; flex:1; margin:0; background:var(--green); color:white; text-decoration:none; font-size:11px; padding:10px;">
+                    <i class="material-icons-round" style="font-size:16px;">picture_as_pdf</i> VEDI PDF
+                </a>
+            </div>
+        </div>
+        
+        <div style="display:flex; flex-direction:column; gap:10px; margin-top:15px;">
+            <button class="btn-save" id="btnSaveAppStandard" onclick="sysSaveApp()"><i class="material-icons-round">save</i> SALVA IN AGENDA</button>
+            <div id="editActionButtons" style="display:none; flex-direction:column; gap:10px;">
+                <button class="btn-save btn-wa" onclick="sysShareWA()"><i class="material-icons-round">whatsapp</i> INVIA WHATSAPP</button>
+                <button class="btn-save btn-del" onclick="sysDelApp()"><i class="material-icons-round">delete</i> ELIMINA PRENOTAZIONE</button>
+            </div>
+
+            <div id="reqActionButtons" style="display:none; flex-direction:column; gap:10px;">
+                <button class="btn-save" style="background:var(--purple); color:white" onclick="sysAcceptRequest()"><i class="material-icons-round">check_circle</i> ACCETTA E INSERISCI IN AGENDA</button>
+                <button class="btn-save btn-del" onclick="sysPromptRejectRequest()"><i class="material-icons-round">cancel</i> RIFIUTA RICHIESTA</button>
+            </div>
+        </div>
+    </div>
+    
+    <div class="grid-container" id="mainGrid"></div>
+</div>
+
+<div id="serviceSelectModal" class="modal-overlay" onclick="if(event.target===this) this.style.display='none'">
+    <div class="modal-box">
+        <h3 style="margin-top:0; color:var(--text-main); font-size:15px; border-bottom:1px solid var(--border-line); padding-bottom:10px; margin-bottom:15px;">Seleziona Servizio</h3>
+        <input type="text" id="searchServiceInput" class="form-input" placeholder="🔍 Cerca trattamento veloce..." onkeyup="sysFilterServices()" style="margin-bottom:15px;">
+        <div class="servizi-list-modal" id="serviziUIList"></div>
+        <div style="display:flex; gap:8px">
+            <button class="btn-save btn-outline" style="flex:1; margin:0;" onclick="document.getElementById('serviceSelectModal').style.display='none'">ANNULLA</button>
+            <button class="btn-save" style="flex:1; margin:0; background:var(--green)" onclick="sysConfirmServiceSelection()">CONFERMA</button>
+        </div>
+    </div>
+</div>
+
+<div id="deleteModal" class="modal-overlay" onclick="if(event.target===this) this.style.display='none'">
+    <div class="modal-box" style="max-width: 350px; text-align: center;">
+        <h3 style="margin-top:0; color:var(--red); border-bottom:1px solid var(--border-line); padding-bottom:10px;">MOTIVO CANCELLAZIONE</h3>
+        <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 20px;">L'azione sarà registrata e notificata alla Reception.</p>
+        <input type="text" id="delReasonInput" class="form-input" placeholder="Scrivi il motivo..." style="margin-bottom: 20px;" onkeypress="if(event.key==='Enter'){ event.preventDefault(); sysConfirmDelete(); }">
+        <div style="display:flex; gap:8px">
+            <button class="btn-save btn-outline" style="flex:1; margin:0;" onclick="document.getElementById('deleteModal').style.display='none'">ANNULLA</button>
+            <button class="btn-save btn-del" style="flex:1; margin:0;" onclick="sysConfirmDelete()">CONFERMA ELIMINAZIONE</button>
+        </div>
+    </div>
+</div>
+
+<div id="tabletConfigModal" class="modal-overlay" onclick="if(event.target===this) this.style.display='none'">
+    <div class="modal-box" style="max-width: 350px; text-align: center;">
+        <h3 style="margin-top:0; color:var(--purple); border-bottom:1px solid var(--border-line); padding-bottom:10px;"><i class="material-icons-round" style="vertical-align:middle">tablet_mac</i> CONFIGURA TABLET</h3>
+        <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 20px;">Inserisci questi dati nell'App del Tablet per collegarlo alla reception.</p>
+        
+        <div class="form-group" style="text-align:left;">
+            <label>Username / ID Struttura</label>
+            <input type="text" id="tabUserConfig" class="form-input" readonly style="color:var(--accent); font-weight:bold; cursor:not-allowed;">
+        </div>
+        
+        <div class="form-group" style="text-align:left; margin-bottom:20px;">
+            <label>Password Tablet</label>
+            <input type="text" id="tabPassConfig" class="form-input" placeholder="Es: 12345 o SPA2024">
+        </div>
+
+        <div style="display:flex; gap:8px">
+            <button class="btn-save btn-outline" style="flex:1; margin:0;" onclick="document.getElementById('tabletConfigModal').style.display='none'">ANNULLA</button>
+            <button class="btn-save" style="flex:1; margin:0; background:var(--purple); color:white;" onclick="saveTabletPassword()">SALVA DATI</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    function openTabletSettings() {
+        document.getElementById('tabUserConfig').value = window.twStructId || localStorage.getItem('tw_structure_id');
+        firebase.database().ref('MASTER_ADMIN_DB/structures_data/' + window.twStructId + '/settings/tabletPass').once('value').then(snap => {
+            document.getElementById('tabPassConfig').value = snap.val() || "";
+            document.getElementById('tabletConfigModal').style.display = 'flex';
+        });
+    }
+    function saveTabletPassword() {
+        const pass = document.getElementById('tabPassConfig').value.trim();
+        if(!pass) return alert("Inserisci una password valida.");
+        firebase.database().ref('MASTER_ADMIN_DB/structures_data/' + window.twStructId + '/settings/tabletPass').set(pass).then(() => {
+            document.getElementById('tabletConfigModal').style.display = 'none';
+            if(typeof showToast === 'function') showToast("Password Tablet Salvata!");
+            else alert("Password salvata con successo!");
+        });
+    }
+</script>
+
+<div class="zoom-controls">
+    <i class="material-icons-round" onclick="sysSetZoom(-10)" title="Zoom Out">remove_circle_outline</i>
+    <input type="range" id="gridZoom" min="50" max="150" value="100" oninput="sysApplyZoom()">
+    <i class="material-icons-round" onclick="sysSetZoom(10)" title="Zoom In">add_circle_outline</i>
+</div>
+
+<script>
+    window.checkAndSendPrivacy = function() {
+        const structId = window.twStructId || localStorage.getItem('tw_structure_id');
+        if(!structId) return alert("Errore: ID Struttura non trovato.");
+
+        const idInput = document.getElementById('mId');
+        const dateInput = document.getElementById('aDate');
+        
+        const appId = (idInput && idInput.value) ? idInput.value : "APP" + Date.now();
+        const date = (dateInput && dateInput.value) ? dateInput.value : new Date().toISOString().split('T')[0];
+        
+        // Legge i documenti configurati in tempo reale dal pannello Admin!
+        firebase.database().ref(`MASTER_ADMIN_DB/structures_data/${structId}/settings/active_docs`).once('value').then(snap => {
+            let docsArray = snap.val();
+            
+            // Se l'Admin non ha configurato nulla, invia uno standard di sicurezza
+            if(!docsArray || docsArray.length === 0) {
+                docsArray = ["Consenso Privacy Base"];
+                // Opzionale: mostra un alert se vuoi avvisare la reception che non c'è una configurazione
+                // alert("L'Admin non ha configurato moduli specifici. Verrà inviato il Consenso Privacy Base.");
+            }
+
+            // Invia al Tablet tramite il ponte radio
+            if(window.DeviceSync && typeof window.DeviceSync.sendToMobile === 'function') {
+                window.DeviceSync.sendToMobile(appId, date, docsArray);
+            } else {
+                alert("Errore di sistema: Modulo DeviceSync non caricato correttamente.");
+            }
+        }).catch(err => {
+            alert("Errore di lettura dal database: " + err.message);
+        });
+    };
+</script>
+
+</body>
+</html>

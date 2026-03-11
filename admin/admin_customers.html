@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>CRM Clienti Globali - TOUCH WELNESS</title>
+<link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
+<style>
+  :root { --primary: #0f172a; --accent: #38bdf8; --gold: #fbbf24; --bg: #f1f5f9; --green: #10b981; }
+  * { box-sizing: border-box; }
+  body { font-family: -apple-system, sans-serif; background: var(--bg); margin: 0; display: flex; height: 100vh; overflow: hidden; color: #334155; }
+  
+  .sidebar { width: 260px; background: var(--primary); color: white; display: flex; flex-direction: column; padding: 20px; box-shadow: 4px 0 15px rgba(0,0,0,0.1); z-index: 100; flex-shrink:0; overflow-y:auto; }
+  .logo { font-size: 18px; font-weight: 900; color: var(--gold); margin-bottom: 30px; text-align: center; letter-spacing: 1px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 20px; }
+  .nav-item { padding: 15px; margin-bottom: 8px; border-radius: 10px; cursor: pointer; display: flex; align-items: center; gap: 12px; font-weight: 600; color: #94a3b8; transition: 0.2s; }
+  .nav-item:hover { background: rgba(255,255,255,0.1); color: white; }
+  .nav-item.active { background: var(--accent); color: var(--primary); }
+
+  .main-content { flex: 1; padding: 30px; overflow-y: auto; background: var(--bg); }
+  .card { background: white; border-radius: 16px; padding: 25px; box-shadow: 0 4px 20px rgba(0,0,0,0.05); margin-bottom: 25px; border: 1px solid #e2e8f0; }
+  h2 { margin-top: 0; color: var(--primary); display:flex; justify-content:space-between; align-items:center; }
+  
+  .data-table { width: 100%; border-collapse: collapse; font-size: 13px; text-align: left; }
+  .data-table th { color: #64748b; padding: 12px; border-bottom: 2px solid #e2e8f0; font-size: 11px; text-transform: uppercase; background:#f8fafc; position: sticky; top:0; }
+  .data-table td { padding: 12px; border-bottom: 1px solid #f1f5f9; color: #334155; }
+  .clickable:hover { background: #f0f9ff; cursor: pointer; }
+
+  .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 2000; align-items: center; justify-content: center; backdrop-filter: blur(4px); }
+  .modal-box { background: white; padding: 30px; border-radius: 20px; width: 90%; max-width: 600px; box-shadow: 0 20px 50px rgba(0,0,0,0.2); max-height:80vh; overflow-y:auto; }
+  .btn-close { padding: 10px 20px; background: #e2e8f0; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; margin-top: 20px; width: 100%; }
+  
+  input { padding: 12px; border-radius: 8px; border: 1px solid #cbd5e1; outline: none; width: 300px; }
+
+  @media (max-width: 768px) { body { flex-direction: column; } .sidebar { display: none; } .main-content { padding: 10px; } input { width: 100%; } }
+</style>
+</head>
+<body>
+
+<div class="sidebar">
+    <div class="logo">ADMIN MASTER</div>
+    <div class="nav-item" onclick="window.location.href='admin.html'"><i class="material-icons-round">arrow_back</i> Torna ad Admin</div>
+    <div class="nav-item active"><i class="material-icons-round">contact_page</i> Clienti CRM</div>
+</div>
+
+<div class="main-content">
+    <div class="card">
+        <h2>Anagrafica Clienti Globale <input type="text" id="searchClient" placeholder="Cerca nome o telefono..." onkeyup="renderCustomers()"></h2>
+        <p style="font-size:13px; color:#64748b">Tutti i clienti registrati automaticamente dalle strutture. Il calcolo spesa analizza l'intero Network.</p>
+        
+        <div style="overflow-x:auto; border:1px solid #e2e8f0; border-radius:12px; margin-top:20px; max-height:600px">
+            <table class="data-table">
+                <thead><tr><th>Nome e Cognome</th><th>Telefono</th><th>Data Registrazione</th></tr></thead>
+                <tbody id="customerTable"></tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<div id="clientModal" class="modal-overlay" onclick="if(event.target===this)this.style.display='none'">
+    <div class="modal-box">
+        <h2 id="mClientName" style="margin-bottom:5px; border-bottom:2px solid var(--gold); padding-bottom:10px">Nome Cliente</h2>
+        <p style="font-size:13px; color:#64748b; margin-top:0"><i class="material-icons-round" style="font-size:14px; vertical-align:middle">phone</i> <span id="mClientPhone"></span></p>
+        
+        <div style="background:#f0fdf4; border:1px solid #bbf7d0; border-radius:12px; padding:15px; margin:20px 0; text-align:center">
+            <div style="font-size:12px; color:#047857; font-weight:bold; text-transform:uppercase">Spesa Totale Network (Pagato)</div>
+            <div id="mTotalSpent" style="font-size:30px; font-weight:900; color:var(--green)">Calcolo in corso...</div>
+        </div>
+
+        <h3 style="font-size:14px; color:var(--primary); margin-bottom:10px">Storico Trattamenti</h3>
+        <div style="max-height:250px; overflow-y:auto; border:1px solid #e2e8f0; border-radius:8px">
+            <table class="data-table">
+                <thead><tr><th>Data</th><th>Struttura</th><th>Trattamento</th><th>Costo</th></tr></thead>
+                <tbody id="mHistoryTable"></tbody>
+            </table>
+        </div>
+        <button class="btn-close" onclick="document.getElementById('clientModal').style.display='none'">CHIUDI</button>
+    </div>
+</div>
+
+<script>
+    const fbConfig = { apiKey: "AIzaSyCrDuK7SWHdbzrJR-pNpxmRwGnZgV2Dd2Y", authDomain: "touch-welness-massage.firebaseapp.com", databaseURL: "https://touch-welness-massage-default-rtdb.europe-west1.firebasedatabase.app", projectId: "touch-welness-massage" };
+    if (!firebase.apps.length) firebase.initializeApp(fbConfig);
+    const dbRef = firebase.database().ref('MASTER_ADMIN_DB');
+
+    let allCustomers = []; let structDataCache = {}; let structNames = {};
+
+    dbRef.once('value').then(snap => {
+        const db = snap.val() || {};
+        allCustomers = Object.values(db.global_customers || {}).reverse();
+        structDataCache = db.structures_data || {};
+        const structs = db.structures || {};
+        for(let key in structs) { structNames[key] = structs[key].name; }
+        renderCustomers();
+    });
+
+    function renderCustomers() {
+        const search = document.getElementById('searchClient').value.toLowerCase();
+        const tbody = document.getElementById('customerTable'); tbody.innerHTML = "";
+        const filtered = allCustomers.filter(c => c.nome.toLowerCase().includes(search) || (c.tel && c.tel.includes(search)));
+        
+        if(filtered.length === 0) { tbody.innerHTML = "<tr><td colspan='3' style='text-align:center; padding:20px; color:#94a3b8'>Nessun cliente trovato.</td></tr>"; return; }
+        filtered.forEach(c => {
+            const dateStr = new Date(c.created_at).toLocaleDateString('it-IT');
+            tbody.innerHTML += `<tr class="clickable" onclick="openClientDetail('${c.nome.replace(/'/g, "\\'")}', '${c.tel||''}')"><td><b style="color:var(--primary); font-size:15px; text-transform:capitalize">${c.nome}</b></td><td><b>${c.tel || '-'}</b></td><td>${dateStr}</td></tr>`;
+        });
+    }
+
+    function openClientDetail(nome, tel) {
+        document.getElementById('mClientName').innerText = nome.toUpperCase(); document.getElementById('mClientPhone').innerText = tel || "Nessun recapito";
+        document.getElementById('mTotalSpent').innerText = "Calcolo in corso..."; document.getElementById('clientModal').style.display = 'flex';
+        
+        const tbody = document.getElementById('mHistoryTable'); tbody.innerHTML = "";
+        let totalSpent = 0; let history = [];
+
+        for(let structId in structDataCache) {
+            const appsObj = structDataCache[structId].app || {}; const serviziList = structDataCache[structId].servizi || [];
+            for(let dateKey in appsObj) {
+                appsObj[dateKey].forEach(a => {
+                    if((a.cog||"").toLowerCase().trim() === nome.toLowerCase().trim() || (tel && a.tel === tel)) {
+                        let price = parseFloat(a.price) || parseFloat(a.prezzo) || 0;
+                        if(price === 0 && a.serv) { const srv = serviziList.find(s => a.serv.includes(s.nome)); if(srv && srv.prezzo) price = parseFloat(srv.prezzo); }
+                        if(a.pagato) totalSpent += price;
+                        history.push({ date: dateKey.split('-').reverse().join('/'), struct: structNames[structId] || "Struttura Disconnessa", serv: a.serv || '-', price: price, pagato: a.pagato });
+                    }
+                });
+            }
+        }
+
+        document.getElementById('mTotalSpent').innerText = totalSpent.toFixed(2) + " €";
+        if(history.length === 0) { tbody.innerHTML = "<tr><td colspan='4' style='text-align:center; padding:15px; color:#94a3b8'>Nessuno storico trovato.</td></tr>"; } 
+        else { history.forEach(h => { const badge = h.pagato ? `<span style="color:var(--green); font-weight:bold; font-size:10px">PAGATO</span>` : `<span style="color:#ef4444; font-size:10px">DA PAGARE</span>`; tbody.innerHTML += `<tr><td>${h.date}</td><td><b>${h.struct}</b></td><td>${h.serv}</td><td><b>${h.price.toFixed(2)}€</b><br>${badge}</td></tr>`; }); }
+    }
+</script>
+</body>
+</html>

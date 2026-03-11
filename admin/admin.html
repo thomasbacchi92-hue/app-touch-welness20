@@ -1,0 +1,722 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Admin MASTER - TOUCH WELNESS</title>
+
+<link rel="manifest" href="./manifest.json">
+<meta name="theme-color" content="#0f172a">
+<link rel="apple-touch-icon" href="https://via.placeholder.com/192">
+
+<link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
+
+<style>
+  :root { 
+      --bg-body: #0f172a; --bg-panel: #1e293b; --border-line: #334155; 
+      --text-main: #f8fafc; --text-muted: #94a3b8; 
+      --accent: #38bdf8; --gold: #fbbf24; --green: #10b981; --red: #ef4444; --purple: #a855f7;
+  }
+  :root.light-theme {
+      --bg-body: #f8fafc; --bg-panel: #ffffff; --border-line: #e2e8f0;
+      --text-main: #0f172a; --text-muted: #64748b;
+  }
+
+  * { box-sizing: border-box; }
+  body { font-family: -apple-system, sans-serif; background: var(--bg-body); margin: 0; display: flex; height: 100vh; overflow: hidden; color: var(--text-main); transition: 0.3s; }
+  
+  .mobile-header { display: none; background: var(--bg-body); color: var(--text-main); padding: 15px 20px; justify-content: space-between; align-items: center; z-index: 50; border-bottom: 1px solid var(--border-line); width: 100%; flex-shrink: 0; }
+  .sidebar-overlay { display: none; position: fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); z-index:90; backdrop-filter: blur(2px); }
+  
+  .sidebar { width: 260px; background: var(--bg-body); color: var(--text-main); border-right: 1px solid var(--border-line); display: flex; flex-direction: column; padding: 20px; box-shadow: 4px 0 15px rgba(0,0,0,0.5); z-index: 100; transition: left 0.3s ease; flex-shrink:0; overflow-y:auto; }
+  .logo { font-size: 18px; font-weight: 900; color: var(--gold); margin-bottom: 30px; text-align: center; letter-spacing: 1px; border-bottom: 1px solid var(--border-line); padding-bottom: 20px; }
+  .nav-item { padding: 15px; margin-bottom: 8px; border-radius: 10px; cursor: pointer; display: flex; align-items: center; gap: 12px; font-weight: 600; color: var(--text-muted); transition: 0.2s; border: 1px solid transparent; }
+  .nav-item:hover, .nav-item.active { background: rgba(56, 189, 248, 0.1); color: var(--accent); border-color: var(--accent); }
+
+  .main-content { flex: 1; padding: 30px; overflow-y: auto; position: relative; }
+  .view-section { display: none; animation: fade 0.3s ease; }
+  .view-section.active { display: block; }
+  @keyframes fade { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+  .card { background: var(--bg-panel); border-radius: 16px; padding: 25px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); margin-bottom: 25px; border: 1px solid var(--border-line); transition: 0.3s; }
+  h2, h3 { margin-top: 0; color: var(--gold); display:flex; justify-content:space-between; align-items:center; flex-wrap: wrap; gap:10px; }
+  h2 { font-size: 20px; border-bottom: 2px solid var(--border-line); padding-bottom: 10px; margin-bottom: 20px; text-transform: uppercase; }
+  h3 { font-size: 16px; margin-bottom: 15px; border-bottom: 1px solid var(--border-line); padding-bottom: 8px; color: var(--text-main); }
+  
+  label { font-size: 11px; font-weight: bold; color: var(--text-muted); text-transform: uppercase; display: block; margin-bottom: 5px; }
+  input, select, textarea { width: 100%; padding: 12px; border: 1px solid var(--border-line); border-radius: 8px; font-size: 14px; outline: none; margin-bottom: 15px; background: var(--bg-body); color: var(--text-main); color-scheme: dark; transition: 0.2s; }
+  input:focus, select:focus, textarea:focus { border-color:var(--accent); box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.3); }
+  
+  .btn-action { display: inline-flex; align-items: center; justify-content: center; gap: 8px; width: auto; padding: 12px 20px; background: var(--accent); color: #0f172a; border: none; border-radius: 8px; font-weight: 900; cursor: pointer; transition: 0.2s; white-space: nowrap; box-shadow: 0 4px 6px rgba(0,0,0,0.3); }
+  .btn-action:hover { transform: translateY(-2px); box-shadow: 0 6px 12px rgba(0,0,0,0.5); }
+  .btn-action:active { transform: translateY(0); box-shadow: none; }
+  .btn-action.w-100 { width: 100%; }
+  .btn-sm { padding: 8px 15px; font-size: 12px; margin:0; }
+  
+  .btn-red { background: rgba(239, 68, 68, 0.1); color: var(--red); border: 1px solid rgba(239, 68, 68, 0.3); box-shadow: none; }
+  .btn-red:hover { background: rgba(239, 68, 68, 0.2); transform: none; box-shadow: none; }
+  .btn-green { background: var(--green); color: white; }
+  .btn-gold { background: var(--gold); color: #0f172a; }
+  .btn-outline { background: transparent; color: var(--text-main); border: 1px solid var(--border-line); box-shadow: none; }
+  .btn-outline:hover { background: rgba(255,255,255,0.05); transform: none; }
+
+  .list-row { background: var(--bg-body); padding: 15px; border-radius: 10px; border: 1px solid var(--border-line); display: flex; justify-content: space-between; align-items: center; margin-bottom:10px; transition:0.2s; }
+  .clickable:hover { border-color: var(--accent); background: rgba(56, 189, 248, 0.05); cursor: pointer; transform: translateX(5px); }
+  .row-info b { color: var(--text-main); display: block; font-size:15px; }
+  .row-info span { font-size: 12px; color: var(--text-muted); }
+  
+  .data-table { width: 100%; border-collapse: collapse; font-size: 13px; text-align: left; background: var(--bg-panel); }
+  .data-table th { color: var(--text-muted); padding: 12px; border-bottom: 2px solid var(--border-line); font-size: 11px; text-transform: uppercase; background: var(--bg-body); position: sticky; top:0; }
+  .data-table td { padding: 12px; border-bottom: 1px solid var(--border-line); color: var(--text-main); }
+  
+  .badge { padding: 4px 8px; border-radius: 6px; font-size: 11px; font-weight: bold; display:inline-block; }
+  .b-pren { background: rgba(56, 189, 248, 0.1); color: var(--accent); border: 1px solid rgba(56, 189, 248, 0.3); } 
+  .b-eseg { background: rgba(16, 185, 129, 0.1); color: var(--green); border: 1px solid rgba(16, 185, 129, 0.3); } 
+  .b-elim { background: rgba(239, 68, 68, 0.1); color: var(--red); border: 1px solid rgba(239, 68, 68, 0.3); }
+
+  .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 2000; align-items: center; justify-content: center; backdrop-filter: blur(4px); }
+  .modal-box { background: var(--bg-panel); padding: 30px; border-radius: 20px; width: 90%; max-width: 500px; text-align: left; box-shadow: 0 20px 50px rgba(0,0,0,0.8); border: 1px solid var(--border-line); }
+  .modal-box.center { text-align: center; }
+  
+  .btn-icon { background: none; border: none; cursor: pointer; color: var(--text-muted); transition: 0.2s; padding:5px; display:flex; align-items:center; justify-content:center;}
+  .btn-icon:hover { color: var(--accent); transform: scale(1.1); }
+  .btn-del { color: var(--red); } .btn-del:hover { color: #f87171; }
+
+  .tabs-header { display: flex; gap: 10px; margin-bottom: 20px; border-bottom: 2px solid var(--border-line); overflow-x: auto; padding-bottom:5px; }
+  .tab-btn { padding: 10px 15px; background: none; border: none; cursor: pointer; font-weight: bold; color: var(--text-muted); border-bottom: 3px solid transparent; white-space: nowrap; transition: 0.2s; }
+  .tab-btn:hover { color: var(--text-main); }
+  .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+  .tab-content { display: none; }
+  .tab-content.active { display: block; }
+  
+  .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 15px; margin-bottom: 20px; }
+  .stat-card { padding: 15px; text-align: center; background: var(--bg-body); border-radius: 12px; border: 1px solid var(--border-line); border-bottom: 4px solid var(--accent); box-shadow: 0 4px 10px rgba(0,0,0,0.3);}
+  .stat-val { font-size: 32px; font-weight: 900; color: var(--text-main); margin: 5px 0; }
+  .stat-lbl { font-size: 10px; color: var(--text-muted); font-weight: bold; text-transform: uppercase; }
+  .stat-euro { font-size: 14px; font-weight: bold; margin-top: 5px; }
+
+  .theme-card { border: 2px solid var(--border-line); border-radius: 12px; padding: 15px; cursor: pointer; transition: 0.2s; background: var(--bg-body); text-align:center; }
+  .theme-card.active { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.2); }
+
+  #toastBlue { visibility: hidden; min-width: 250px; background: var(--toast-blue, #2563eb); color: white; text-align: center; border-radius: 10px; padding: 16px; position: fixed; right: 30px; bottom: 30px; z-index: 9999; opacity: 0; transition: 0.3s; font-weight: bold; box-shadow: 0 10px 20px rgba(0,0,0,0.5); }
+  #toastBlue.show { visibility: visible; opacity: 1; bottom: 40px; }
+
+  @media (max-width: 768px) {
+      body { flex-direction: column; }
+      .mobile-header { display: flex; }
+      .sidebar { position: fixed; left: -300px; top: 0; height: 100vh; padding-top: 20px; }
+      .sidebar.open { left: 0; }
+      .sidebar-overlay.open { display: block; }
+      .main-content { padding: 15px; overflow-x: hidden; }
+      .card { padding: 15px; }
+      .data-table { display: block; overflow-x: auto; white-space: nowrap; }
+      .stats-grid { grid-template-columns: 1fr 1fr; }
+      .btn-action { width: 100%; } 
+  }
+</style>
+<script>
+    if(localStorage.getItem('tw_admin_theme') === 'light') { document.documentElement.classList.add('light-theme'); }
+</script>
+</head>
+<body>
+
+<div id="toastBlue">Notifica</div>
+
+<div class="mobile-header">
+    <div style="font-weight:900; color:var(--gold); letter-spacing:1px">TOUCH WELNESS <span style="font-size:10px; color:var(--text-muted)">ADMIN</span></div>
+    <button class="btn-icon" style="color:var(--text-main)" onclick="document.getElementById('adminSidebar').classList.add('open'); document.getElementById('sidebarOverlay').classList.add('open');"><i class="material-icons-round">menu</i></button>
+</div>
+<div id="sidebarOverlay" class="sidebar-overlay" onclick="this.classList.remove('open'); document.getElementById('adminSidebar').classList.remove('open');"></div>
+
+<div id="deleteUserModal" class="modal-overlay">
+    <div class="modal-box center">
+        <div style="width:60px; height:60px; background:rgba(239, 68, 68, 0.1); color:var(--red); border-radius:50%; display:flex; align-items:center; justify-content:center; margin:0 auto 15px auto; border:1px solid rgba(239, 68, 68, 0.3)"><i class="material-icons-round" style="font-size:32px">delete_forever</i></div>
+        <h3 style="margin-top:0; color:var(--red); justify-content:center; border:none;">Attenzione!</h3>
+        <p style="color:var(--text-main); font-weight:bold; font-size:14px; margin-bottom:15px">Stai per rimuovere un collaboratore.</p>
+        <div style="display:flex; gap:10px">
+            <button class="btn-action btn-outline w-100" onclick="app.cancelDeleteUser()">ANNULLA</button>
+            <button class="btn-action btn-red w-100" onclick="app.confirmDeleteUser()">ELIMINA</button>
+        </div>
+    </div>
+</div>
+
+<div id="structActionModal" class="modal-overlay" onclick="if(event.target===this)this.style.display='none'">
+    <div class="modal-box">
+        <h3 style="color:var(--gold); margin-top:0; border:none;"><i class="material-icons-round" style="vertical-align:middle; color:var(--red)">warning</i> Gestione Struttura</h3>
+        <p style="color:var(--text-muted); font-size:13px; margin-bottom:20px">Scegli l'azione da eseguire per questa struttura.</p>
+        
+        <button id="btnArchiviaStruttura" class="btn-action btn-gold w-100" style="margin-bottom:10px" onclick="app.toggleArchiveStructure(true)">ARCHIVIA STRUTTURA</button>
+        <button class="btn-action btn-red w-100" onclick="app.promptDeleteStructure()">ELIMINA STRUTTURA DEFINITIVAMENTE</button>
+        
+        <div id="deleteStructAuthArea" style="display:none; margin-top:20px; padding-top:20px; border-top:1px solid var(--border-line);">
+            <label style="color:var(--red)"><i class="material-icons-round" style="font-size:14px; vertical-align:middle">lock</i> Password Master</label>
+            <input type="password" id="delStructPwd" placeholder="Inserisci Password Master">
+            <button class="btn-action btn-red w-100" style="margin-top:10px" onclick="app.confirmDeleteStructure()">CONFERMA ELIMINAZIONE</button>
+        </div>
+        <button class="btn-action btn-outline w-100" style="margin-top:15px;" onclick="document.getElementById('structActionModal').style.display='none'">ANNULLA</button>
+    </div>
+</div>
+
+<div id="newGlobalTreatmentModal" class="modal-overlay" onclick="if(event.target===this)this.style.display='none'">
+    <div class="modal-box">
+        <h3 style="border:none;">Nuova Tecnica (Globale)</h3>
+        <div class="form-group"><label>Nome Tecnica / Trattamento</label><input type="text" id="gtName" placeholder="Es. Massaggio Svedese"></div>
+        <div class="form-group"><label>Durata (Minuti)</label><input type="number" id="gtTime" placeholder="Es. 50"></div>
+        <div class="form-group"><label>Costo / Prezzo Listino (€)</label><input type="number" id="gtCost" step="0.01" placeholder="Es. 80.00"></div>
+        <div style="display:flex; gap:10px; margin-top:20px">
+            <button class="btn-action btn-outline w-100" onclick="document.getElementById('newGlobalTreatmentModal').style.display='none'">ANNULLA</button>
+            <button class="btn-action w-100" onclick="app.saveGlobalTreatment()">SALVA TECNICA</button>
+        </div>
+    </div>
+</div>
+
+<div id="newArticleModal" class="modal-overlay" onclick="if(event.target===this)this.style.display='none'">
+    <div class="modal-box">
+        <h3 style="border:none;">Nuovo Articolo Magazzino</h3>
+        <div class="form-group"><label>Nome Articolo</label><input type="text" id="naName" placeholder="Es. Crema Viso Idratante"></div>
+        <div class="form-group"><label>Unità di Misura</label><input type="text" id="naUnit" placeholder="Es. Pz, L, ml"></div>
+        <div class="form-group"><label>Costo Unitario (€)</label><input type="number" id="naCost" step="0.01" placeholder="Es. 15.50"></div>
+        <div style="display:flex; gap:10px; margin-top:20px">
+            <button class="btn-action btn-outline w-100" onclick="document.getElementById('newArticleModal').style.display='none'">ANNULLA</button>
+            <button class="btn-action w-100" onclick="app.saveNewArticle()">SALVA ARTICOLO</button>
+        </div>
+    </div>
+</div>
+
+<div id="loadStockModal" class="modal-overlay" onclick="if(event.target===this)this.style.display='none'">
+    <div class="modal-box">
+        <h3 style="border:none;"><i class="material-icons-round" style="color:var(--green); vertical-align:middle">local_shipping</i> Registra Carico Merci</h3>
+        <div class="form-group"><label>Seleziona Articolo</label><select id="lsProd"></select></div>
+        <div class="form-group"><label>Quantità da Caricare</label><input type="number" id="lsQty" placeholder="Inserisci il numero"></div>
+        <div style="display:flex; gap:10px; margin-top:20px">
+            <button class="btn-action btn-outline w-100" onclick="document.getElementById('loadStockModal').style.display='none'">ANNULLA</button>
+            <button class="btn-action btn-green w-100" onclick="app.confirmLoadStock()">CONFERMA CARICO</button>
+        </div>
+    </div>
+</div>
+
+<div id="editGenDocModal" class="modal-overlay" onclick="if(event.target===this)this.style.display='none'">
+    <div class="modal-box" style="max-width:800px; width:95%;">
+        <h3 style="border:none; color:var(--accent); margin-top:0;">Modifica Documento Struttura</h3>
+        <input type="hidden" id="egd_docId">
+        <div class="form-group">
+            <label>Testo Documento</label>
+            <textarea id="egd_content" rows="20" style="resize:vertical; font-family:monospace; font-size:12px;"></textarea>
+        </div>
+        <div style="display:flex; gap:10px; margin-top:15px">
+            <button class="btn-action btn-outline w-100" onclick="document.getElementById('editGenDocModal').style.display='none'">ANNULLA</button>
+            <button class="btn-action btn-green w-100" onclick="app.saveEditedDoc()"><i class="material-icons-round">save</i> SALVA MODIFICHE</button>
+        </div>
+    </div>
+</div>
+
+
+<div class="main-content">
+    
+    <div id="view-stats" class="view-section active">
+        <div class="card">
+            <h2>Panoramica Generale</h2>
+            <p style="font-size:13px; color:var(--text-muted)">Seleziona una struttura dalla lista per vedere i dettagli e le statistiche approfondite.</p>
+            <div style="overflow-x:auto;">
+                <table class="data-table" style="margin-top:20px;">
+                    <thead><tr><th>Nome Struttura</th><th>Codice ID</th><th style="text-align:right">Azione</th></tr></thead>
+                    <tbody id="globalStatsTable"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div id="view-customers" class="view-section">
+        <div id="customer-list-view">
+            <div class="card">
+                <h2>Anagrafica Clienti (CRM Globale)</h2>
+                <p style="font-size:13px; color:var(--text-muted); margin-bottom: 20px;">Archivio centralizzato di tutti i clienti registrati dalle strutture.</p>
+
+                <div style="display:flex; gap:10px; margin-bottom:20px;">
+                    <input type="text" id="searchCustomerAdmin" placeholder="Cerca cliente per nome o telefono..." onkeyup="app.renderCustomers()" style="flex:1; margin:0;">
+                </div>
+
+                <div class="table-responsive" style="max-height: 500px; overflow-y:auto;">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th style="width: 15%;">Codice</th>
+                                <th style="width: 25%;">Nome Cliente</th>
+                                <th style="width: 25%;">Telefono</th>
+                                <th style="width: 25%;">Registrazione</th>
+                                <th style="width: 10%; text-align:right">Azioni</th>
+                            </tr>
+                        </thead>
+                        <tbody id="adminCustomersTable"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div id="customer-detail-view" style="display:none">
+            <button onclick="app.closeCustomerDetail()" style="background:none; border:none; cursor:pointer; font-weight:bold; color:var(--text-muted); margin-bottom:15px; display:flex; align-items:center; gap:5px; padding:0; transition:0.2s;">
+                <i class="material-icons-round">arrow_back</i> TORNA ELENCO CLIENTI
+            </button>
+            
+            <div class="card">
+                <div style="display:flex; justify-content:space-between; align-items:center; border-bottom: 2px solid var(--border-line); padding-bottom: 10px; margin-bottom: 20px;">
+                    <h2 style="border:none; margin:0; padding:0;"><i class="material-icons-round" style="color:var(--accent); vertical-align:middle;">account_circle</i> <span id="cd_name">Nome Cliente</span></h2>
+                    <span id="cd_id" class="badge" style="background:var(--bg-body); color:var(--text-muted); border:1px solid var(--border-line); font-size:12px;"></span>
+                </div>
+
+                <div class="stats-grid" style="grid-template-columns: 1fr 1fr 1fr;">
+                    <div class="stat-card" style="border-bottom-color:var(--gold)"><div class="stat-lbl">Telefono Registrato</div><div class="stat-val" id="cd_phone" style="font-size:18px;">-</div></div>
+                    <div class="stat-card" style="border-bottom-color:var(--accent)"><div class="stat-lbl">Trattamenti Totali</div><div class="stat-val" id="cd_tot_treatments">0</div></div>
+                    <div class="stat-card" style="border-bottom-color:var(--green)"><div class="stat-lbl">Spesa Totale</div><div class="stat-val" id="cd_tot_spent" style="color:var(--green)">0.00 €</div></div>
+                </div>
+
+                <div class="tabs-header">
+                    <button class="tab-btn active" onclick="app.openCustomerTab('c-history')">Storico Trattamenti</button>
+                    <button class="tab-btn" onclick="app.openCustomerTab('c-docs')">Documenti & Privacy</button>
+                </div>
+
+                <div id="tab-c-history" class="tab-content active">
+                    <div style="overflow-x: auto; border: 1px solid var(--border-line); border-radius: 12px;">
+                        <table class="data-table">
+                            <thead>
+                                <tr><th>Data</th><th>Struttura</th><th>Servizio</th><th>Operatore</th><th>Prezzo</th></tr>
+                            </thead>
+                            <tbody id="cd_history_table">
+                                <tr><td colspan="5" style="text-align:center; padding:20px; color:var(--text-muted)">Scansione storico in corso...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div id="tab-c-docs" class="tab-content">
+                    <div style="border:1px solid var(--border-line); border-radius:12px; padding:20px; background:var(--bg-body); margin-bottom:20px;">
+                        <h3 style="margin-top:0; border:none; font-size:14px;"><i class="material-icons-round" style="vertical-align:middle; font-size:18px; color:var(--accent)">upload_file</i> Carica Documento Firmato (Privacy / Manleva)</h3>
+                        <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+                            <input type="text" id="cd_doc_name" placeholder="Nome File (es. Consenso Privacy)" style="flex:2; margin:0;">
+                            <input type="file" id="cd_doc_file" style="flex:1; margin:0; padding:9px;">
+                            <button class="btn-action btn-green" style="margin:0;" onclick="app.uploadCustomerDoc()">CARICA</button>
+                        </div>
+                    </div>
+
+                    <div style="overflow-x: auto; border: 1px solid var(--border-line); border-radius: 12px;">
+                        <table class="data-table">
+                            <thead>
+                                <tr><th>Data Inserimento</th><th>Nome Documento</th><th>File Allegato</th><th style="text-align:right">Azioni</th></tr>
+                            </thead>
+                            <tbody id="cd_docs_table"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="view-treatments" class="view-section">
+        <div class="card">
+            <h2>Tecniche e Trattamenti <button class="btn-action" style="margin:0; width:auto" onclick="document.getElementById('newGlobalTreatmentModal').style.display='flex'"><i class="material-icons-round">add</i> AGGIUNGI</button></h2>
+            <p style="font-size:13px; color:var(--text-muted)">Queste sono le tecniche master del network. Da qui potrai caricarle nei listini delle singole strutture.</p>
+            <div style="overflow-x:auto; border:1px solid var(--border-line); border-radius:12px; margin-top:20px">
+                <table class="data-table">
+                    <thead><tr><th>Nome Tecnica</th><th>Durata</th><th>Prezzo Base</th><th style="text-align:right">Azione</th></tr></thead>
+                    <tbody id="globalTreatmentsTable"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div id="view-structures" class="view-section">
+        <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap:20px">
+            <div class="card">
+                <h2>Crea Nuova Struttura</h2>
+                <div class="form-group"><label>Nome Hotel / Centro</label><input type="text" id="strName"></div>
+                <div class="form-group"><label>ID Univoco</label><input type="text" id="strId" style="text-transform:uppercase" placeholder="NO SPAZI (usa _ )"></div>
+                <button class="btn-action w-100" onclick="app.addStructure()">CREA STRUTTURA</button>
+            </div>
+            <div class="card">
+                <h2>Elenco Strutture Attive</h2>
+                <div id="structureList"></div>
+            </div>
+        </div>
+    </div>
+
+    <div id="view-structure-detail" class="view-section">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px; flex-wrap:wrap; gap:10px">
+            <button onclick="app.switchView('structures')" style="background:none; border:none; cursor:pointer; font-weight:bold; color:var(--text-muted); display:flex; align-items:center; gap:5px; padding:0; transition:0.2s;">
+                <i class="material-icons-round">arrow_back</i> TORNA ELENCO
+            </button>
+            <button onclick="app.openStructActionModal()" class="btn-action btn-sm btn-outline" style="color:var(--red); border-color:var(--red);">
+                <i class="material-icons-round">delete_sweep</i> GESTIONE STRUTTURA
+            </button>
+        </div>
+
+        <div class="card">
+            <h2 id="detailTitle" style="border:none; margin-bottom:5px; color:var(--accent)">Dettaglio Struttura</h2>
+            <div class="tabs-header">
+                <button class="tab-btn active" onclick="app.openTab('stats')">Statistiche</button>
+                <button class="tab-btn" onclick="app.openTab('info')">Anagrafica & Accessi</button>
+                <button class="tab-btn" onclick="app.openTab('staff')">Personale</button>
+                <button class="tab-btn" onclick="app.openTab('struct-treatments')">Trattamenti</button>
+                <button class="tab-btn" onclick="app.openTab('wh')">Magazzino</button>
+                <button class="tab-btn" onclick="app.openTab('lic')">Licenze & Contratti</button>
+                <button class="tab-btn" onclick="app.openTab('docs')">Documenti Struttura</button>
+            </div>
+
+            <div id="tab-stats" class="tab-content active">
+                <div style="display:flex; gap:10px; margin-bottom:20px; background:var(--bg-body); padding:15px; border-radius:12px; border:1px solid var(--border-line); align-items:center; flex-wrap:wrap">
+                    <b style="color:var(--gold); margin-right:10px"><i class="material-icons-round" style="vertical-align:middle">filter_alt</i> Filtra Mese:</b>
+                    <select id="fYear" style="margin:0; width:100px" onchange="app.calculateStructStats()"><option value="2024">2024</option><option value="2025">2025</option><option value="2026">2026</option></select>
+                    <select id="fMonth" style="margin:0; width:150px" onchange="app.calculateStructStats()">
+                        <option value="01">Gennaio</option><option value="02">Febbraio</option><option value="03">Marzo</option><option value="04">Aprile</option>
+                        <option value="05">Maggio</option><option value="06">Giugno</option><option value="07">Luglio</option><option value="08">Agosto</option>
+                        <option value="09">Settembre</option><option value="10">Ottobre</option><option value="11">Novembre</option><option value="12">Dicembre</option>
+                    </select>
+                </div>
+
+                <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap:20px; margin-bottom:25px">
+                    <div style="border:1px solid var(--border-line); border-radius:12px; overflow:hidden">
+                        <h3 style="margin:0; padding:15px; background:var(--bg-body); border-bottom:1px solid var(--border-line)">Performance per Operatore</h3>
+                        <div style="overflow-x:auto">
+                            <table class="data-table">
+                                <thead><tr><th>Operatore</th><th>Eseguiti</th><th>Fatturato Generato</th></tr></thead>
+                                <tbody id="statsOpTable"></tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div>
+                        <h3 style="margin:0 0 15px 0; border:none;">Totali Generali Struttura</h3>
+                        <div class="stats-grid" style="grid-template-columns: 1fr 1fr; margin:0">
+                            <div class="stat-card" style="border-bottom-color:var(--accent)"><div class="stat-lbl">Prenotati</div><div class="stat-val" id="sPren">0</div><div class="stat-euro" style="color:var(--accent)" id="ePren">0.00 €</div></div>
+                            <div class="stat-card" style="border-bottom-color:var(--green)"><div class="stat-lbl">Eseguiti</div><div class="stat-val" id="sEseg">0</div><div class="stat-euro" style="color:var(--green)" id="eEseg">0.00 €</div></div>
+                            <div class="stat-card" style="border-bottom-color:var(--red)"><div class="stat-lbl">Annullati</div><div class="stat-val" id="sElim">0</div><div class="stat-euro" style="color:var(--red)" id="eElim">0.00 €</div></div>
+                            <div class="stat-card" style="border-bottom-color:var(--gold)"><div class="stat-lbl">Pagati</div><div class="stat-val" id="sPag">0</div><div class="stat-euro" style="color:var(--gold)" id="ePag">0.00 €</div></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div style="border: 1px solid var(--border-line); border-radius: 12px; overflow:hidden">
+                    <h3 style="margin:0; padding:15px; background:var(--bg-body); border-bottom:1px solid var(--border-line)">Elenco Appuntamenti Mensili</h3>
+                    <div style="overflow-x: auto;">
+                        <table class="data-table">
+                            <thead><tr><th>Stato</th><th>Data/Ora</th><th>Cliente</th><th>Trattamento</th><th>Operatore</th><th>Causale</th></tr></thead>
+                            <tbody id="structStatsTable"></tbody>
+                        </table>
+                    </div>
+                    <div id="paginationControls" style="padding:15px; background:var(--bg-panel); border-top:1px solid var(--border-line)"></div>
+                </div>
+            </div>
+
+            <div id="tab-info" class="tab-content">
+                
+                <div style="background:var(--bg-body); padding:20px; border-radius:12px; margin-bottom:20px; border:1px solid var(--border-line)">
+                    
+                    <b style="color:var(--accent); font-size:14px; margin-bottom:10px; display:block">CREDENZIALI CLIENT SPA (Area Operativa)</b>
+                    <p style="font-size:12px; color:var(--text-muted); margin-top:0; margin-bottom:15px;">Da usare sul Tablet in cabina per gestire ed eseguire appuntamenti.</p>
+                    <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:15px; margin-bottom:20px;">
+                        <div><label>Username SPA</label><input type="text" id="d_spaNick" placeholder="Es. hotel.spa"></div>
+                        <div><label>Password SPA</label><input type="text" id="d_spaPass" placeholder="Es. pwdSPA123"></div>
+                    </div>
+
+                    <b style="color:var(--purple); font-size:14px; margin-bottom:10px; border-top:1px solid var(--border-line); padding-top:20px; display:block">CREDENZIALI CLIENT RECEPTION (Direzione)</b>
+                    <p style="font-size:12px; color:var(--text-muted); margin-top:0; margin-bottom:15px;">Da usare alla Reception per inviare richieste ed accedere all'area finanziaria.</p>
+                    <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:15px;">
+                        <div><label>Username Reception</label><input type="text" id="d_recNick" placeholder="Es. hotel.rec"></div>
+                        <div><label>Password Reception</label><input type="text" id="d_recPass" placeholder="Es. pwdREC123"></div>
+                    </div>
+
+                </div>
+
+                <div style="background:var(--bg-body); padding:20px; border-radius:12px; margin-bottom:20px; border:1px solid var(--border-line)">
+                    <b style="color:var(--accent); font-size:14px; margin-bottom:15px; display:block"><i class="material-icons-round" style="vertical-align:middle; font-size:16px;">business</i> ANAGRAFICA STRUTTURA (FISICA)</b>
+                    <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:15px; margin-bottom: 25px;">
+                        <div><label>Indirizzo Struttura Fisica</label><input type="text" id="d_s_addr" placeholder="Via Roma, 10"></div>
+                        <div><label>Città (CAP, Prov)</label><input type="text" id="d_s_city" placeholder="00100 Roma (RM)"></div>
+                        <div><label>Telefono Reception</label><input type="text" id="d_s_tel" placeholder="06 123456"></div>
+                        <div><label>Email Pubblica</label><input type="text" id="d_s_email" placeholder="info@spa.it"></div>
+                    </div>
+
+                    <b style="color:var(--gold); font-size:14px; margin-bottom:15px; border-top:1px solid var(--border-line); padding-top:20px; display:block"><i class="material-icons-round" style="vertical-align:middle; font-size:16px;">account_balance</i> SOCIETÀ GESTORE (FATTURAZIONE E LEGALE)</b>
+                    <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:15px;">
+                        <div style="grid-column: 1 / -1"><label>Ragione Sociale (Società di Gestione)</label><input type="text" id="d_g_ragione" placeholder="Es. Wellness Spa Srl"></div>
+                        <div><label>Indirizzo Legale</label><input type="text" id="d_g_addr" placeholder="Via Milano, 20"></div>
+                        <div><label>Città Legale</label><input type="text" id="d_g_city" placeholder="20100 Milano (MI)"></div>
+                        <div><label>P.IVA / C.F.</label><input type="text" id="d_g_piva" placeholder="IT0123456789"></div>
+                        <div><label>Codice SDI</label><input type="text" id="d_g_sdi" placeholder="M5UXCR1"></div>
+                        <div><label>PEC</label><input type="text" id="d_g_pec" placeholder="amministrazione@pec.it"></div>
+                    </div>
+                </div>
+                
+                <button class="btn-action w-100" style="margin-bottom: 25px;" onclick="app.saveInfo()"><i class="material-icons-round">save</i> AGGIORNA DATI E CREDENZIALI</button>
+
+                <div style="background:var(--bg-body); padding:20px; border-radius:12px; border:1px solid var(--border-line)">
+                    <b style="color:var(--accent); font-size:14px; margin-bottom:10px; display:block">CONFIGURAZIONE CABINE AGENDA</b>
+                    <p style="font-size:12px; color:var(--text-muted); margin-top:0; margin-bottom:15px;">Imposta il numero di postazioni attive nell'agenda di questa struttura.</p>
+                    <div style="display:flex; gap:10px; align-items:center;">
+                        <select id="adminCabSelect" style="flex:1; margin:0;">
+                            <option value="1">1 Cabina</option>
+                            <option value="2">2 Cabine</option>
+                            <option value="3">3 Cabine</option>
+                            <option value="4">4 Cabine</option>
+                            <option value="5">5 Cabine</option>
+                        </select>
+                        <button class="btn-action" style="margin:0;" onclick="app.saveCabine()">SALVA CABINE</button>
+                    </div>
+                </div>
+            </div>
+
+            <div id="tab-staff" class="tab-content">
+                <div style="border:1px solid var(--border-line); border-radius:12px; overflow:hidden">
+                    <h3 style="margin:0; padding:15px; background:var(--bg-body); border-bottom:1px solid var(--border-line)">Operatori Assegnati a questa Struttura</h3>
+                    <div style="overflow-x:auto;">
+                        <table class="data-table">
+                            <thead><tr><th>Nickname</th><th>Nome e Cognome</th><th>Telefono</th><th style="text-align:right">Azione</th></tr></thead>
+                            <tbody id="structStaffTable"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <div id="tab-struct-treatments" class="tab-content">
+                <p style="font-size:13px; color:var(--text-muted); margin-top:0">Seleziona le Tecniche dall'archivio Master per caricarle direttamente nel Listino Servizi dell'Agenda di questa struttura.</p>
+                <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap:20px">
+                    <div style="border:1px solid var(--border-line); border-radius:12px; overflow:hidden">
+                        <h3 style="margin:0; padding:15px; background:var(--bg-body); border-bottom:1px solid var(--border-line)">Archivio Globale Master</h3>
+                        <div style="max-height:400px; overflow-y:auto">
+                            <table class="data-table">
+                                <thead><tr><th>Tecnica</th><th>Pz/Dur</th><th style="text-align:right">Azione</th></tr></thead>
+                                <tbody id="stGlobalTreatments"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <div style="border:1px solid rgba(16, 185, 129, 0.3); border-radius:12px; overflow:hidden">
+                        <h3 style="margin:0; padding:15px; background:rgba(16, 185, 129, 0.1); color:var(--green); border-bottom:1px solid rgba(16, 185, 129, 0.2)">Tecniche Abilitate in Struttura</h3>
+                        <div style="max-height:400px; overflow-y:auto">
+                            <table class="data-table">
+                                <thead><tr><th>Tecnica</th><th>Pz/Dur</th><th style="text-align:right">Rimuovi</th></tr></thead>
+                                <tbody id="stEnabledTreatments"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="tab-wh" class="tab-content">
+                <div style="display:flex; gap:10px; margin-bottom:20px; flex-wrap:wrap">
+                    <button class="btn-action btn-outline" onclick="app.openNewArticleModal()"><i class="material-icons-round">add_circle</i> CREA NUOVO ARTICOLO</button>
+                    <button class="btn-action btn-green" style="color:white" onclick="app.openLoadStockModal()"><i class="material-icons-round">local_shipping</i> REGISTRA CARICO MERCI</button>
+                </div>
+                <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap:20px">
+                    <div style="border:1px solid var(--border-line); border-radius:12px; overflow:hidden">
+                        <h3 style="margin:0; padding:15px; background:var(--bg-body); border-bottom:1px solid var(--border-line)">Giacenze Attuali</h3>
+                        <div style="max-height:400px; overflow-y:auto"><table class="data-table"><thead><tr><th>Articolo</th><th>Costo</th><th>Giacenza</th><th>Unità</th></tr></thead><tbody id="whAdminInventory"></tbody></table></div>
+                    </div>
+                    <div style="border:1px solid var(--border-line); border-radius:12px; overflow:hidden">
+                        <h3 style="margin:0; padding:15px; background:var(--bg-body); border-bottom:1px solid var(--border-line)">Registro Movimenti</h3>
+                        <div style="max-height:400px; overflow-y:auto"><table class="data-table"><thead><tr><th>Data</th><th>Azione</th><th>Articolo</th><th>Q.tà</th><th>Operatore</th></tr></thead><tbody id="whAdminLogs"></tbody></table></div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="tab-lic" class="tab-content">
+                <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap:20px">
+                    <div style="border:1px solid var(--border-line); border-radius:12px; padding:20px; background:var(--bg-body)">
+                        <h3 style="margin-top:0; border:none;">Scadenza Licenza Software</h3>
+                        <input type="text" id="lic_exp_date" readonly style="font-weight:bold; text-align:center; font-size:18px; color:var(--accent); margin-bottom:15px">
+                        <div style="display:flex; gap:10px; margin-bottom:15px">
+                            <button class="btn-action btn-sm btn-outline w-100" onclick="app.updateLicense(1)">+1 MESE</button>
+                            <button class="btn-action btn-sm btn-outline w-100" onclick="app.updateLicense(6)">+6 MESI</button>
+                        </div>
+                        <button class="btn-action btn-red w-100" onclick="app.toggleSuspend()">SOSPENDI / ATTIVA LICENZA</button>
+                    </div>
+
+                    <div style="border:1px solid var(--border-line); border-radius:12px; padding:20px; background:var(--bg-body)">
+                        <h3 style="margin-top:0; border:none;">Carica Allegato (Manuale)</h3>
+                        <div style="margin-bottom:20px; padding-bottom:15px; border-bottom:1px solid var(--border-line)">
+                            <label>Caricamento File Esterno Struttura</label>
+                            <input type="file" id="fileContrattoStruttura" style="padding:8px; margin-bottom:10px">
+                            <button class="btn-action btn-sm" onclick="app.uploadContract('struttura')"><i class="material-icons-round">upload_file</i> CLOUD</button>
+                        </div>
+                        <div>
+                            <label>Caricamento File Operatore</label>
+                            <select id="selOpContratto" style="padding:10px; margin-bottom:10px"><option value="">-- Seleziona Operatore --</option></select>
+                            <input type="file" id="fileContrattoOp" style="padding:8px; margin-bottom:10px">
+                            <button class="btn-action btn-sm" onclick="app.uploadContract('operatore')"><i class="material-icons-round">upload_file</i> CLOUD</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="tab-docs" class="tab-content">
+                <div style="border:1px solid var(--border-line); border-radius:12px; overflow:hidden">
+                    <h3 style="margin:0; padding:15px; background:var(--bg-body); border-bottom:1px solid var(--border-line)">File e Consensi Generati per la Struttura</h3>
+                    <div style="overflow-x:auto;">
+                        <table class="data-table">
+                            <thead><tr><th>Data Creazione</th><th>Nome File</th><th style="text-align:right">Azioni ed Export</th></tr></thead>
+                            <tbody id="structDocsTable">
+                                <tr><td colspan='3' style='text-align:center; padding:20px;'>Nessun file generato. Usa la funzione "Gestione Documenti Strutture" per creare i moduli.</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <div id="view-users" class="view-section">
+        <div id="user-list-view">
+            <div class="card" style="background:rgba(56, 189, 248, 0.05); border-color:rgba(56, 189, 248, 0.2)">
+                <h2 style="border-bottom-color:var(--accent)">Crea Profilo Operatore</h2>
+                <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap:10px; align-items:end">
+                    <div class="form-group"><label>Nickname</label><input type="text" id="uUserCreate" placeholder="es. mario.rossi" style="margin:0"></div>
+                    <div class="form-group"><label>Password</label><input type="text" id="uPassCreate" style="margin:0"></div>
+                    <div class="form-group"><label>Struttura</label><select id="uStructCreate" style="margin:0"><option value="">-- Caricamento... --</option></select></div>
+                    <button class="btn-action" style="margin:0; height:43px" onclick="app.addUser()">CREA</button>
+                </div>
+            </div>
+            
+            <div class="card">
+                <h2>Elenco Operatori Registrati</h2>
+                <div style="margin-bottom: 20px; position:relative;">
+                    <i class="material-icons-round" style="position:absolute; left:12px; top:12px; color:var(--text-muted)">search</i>
+                    <input type="text" id="searchUserAdmin" placeholder="Cerca operatore per nome, nick o struttura..." onkeyup="app.renderUsers()" style="margin:0; padding-left:40px; background:var(--bg-body); border-color:var(--border-line);">
+                </div>
+                <div id="usersList"></div>
+            </div>
+        </div>
+
+        <div id="user-detail-view" style="display:none">
+            <button onclick="app.closeUserDetail()" style="background:none; border:none; cursor:pointer; font-weight:bold; color:var(--text-muted); margin-bottom:15px; display:flex; align-items:center; gap:5px; padding:0; transition:0.2s;">
+                <i class="material-icons-round">arrow_back</i> TORNA ELENCO
+            </button>
+            <div class="card">
+                <h2 id="uDetailTitle" style="border:none; margin-bottom:5px; color:var(--accent)">Profilo Operatore</h2>
+                
+                <div style="background:rgba(16, 185, 129, 0.1); border:1px solid rgba(16, 185, 129, 0.3); border-radius:12px; padding:15px; margin-bottom:20px; text-align:center">
+                    <div style="font-size:12px; color:var(--green); font-weight:bold; text-transform:uppercase">Fatturato Globale Generato (Pagato)</div>
+                    <div id="u_total_revenue" style="font-size:30px; font-weight:900; color:var(--text-main)">0.00 €</div>
+                </div>
+
+                <div class="tabs-header">
+                    <button class="tab-btn active" onclick="app.openUserTab('u-profile')">Profilo e Credenziali</button>
+                    <button class="tab-btn" onclick="app.openUserTab('u-commissions')">Commissioni e Compensi</button>
+                </div>
+                
+                <div id="tab-u-profile" class="tab-content active">
+                    <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:15px; background:var(--bg-body); padding:20px; border-radius:12px; margin-bottom:20px; border:1px solid var(--border-line)">
+                        <div style="grid-column: 1 / -1; font-weight:bold; color:var(--gold)">CREDENZIALI E ASSEGNAZIONE STRUTTURA</div>
+                        <div class="form-group"><label>Nickname</label><input type="text" id="u_username"></div>
+                        <div class="form-group"><label>Password</label><input type="text" id="u_password"></div>
+                        <div class="form-group" style="grid-column: 1 / -1"><label>Struttura Assegnata</label><select id="u_structureId"></select></div>
+                    </div>
+                    <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:15px">
+                        <div class="form-group"><label>Nome</label><input type="text" id="u_name"></div>
+                        <div class="form-group"><label>Cognome</label><input type="text" id="u_surname"></div>
+                        <div class="form-group"><label>Cellulare</label><input type="text" id="u_phone"></div>
+                        <div class="form-group"><label>Email</label><input type="text" id="u_email"></div>
+                        <div class="form-group" style="grid-column: 1 / -1"><label>Note Direzione</label><textarea id="u_notes" rows="2"></textarea></div>
+                    </div>
+                    <button class="btn-action w-100" onclick="app.saveUserDetail()"><i class="material-icons-round">save</i> SALVA DATI PROFILO</button>
+                </div>
+
+                <div id="tab-u-commissions" class="tab-content">
+                    <div style="background:var(--bg-body); padding:20px; border-radius:12px; margin-bottom:20px; border:1px solid var(--border-line)">
+                        <b style="color:var(--accent); font-size:14px; margin-bottom:15px; display:block">IMPOSTAZIONI FINANZIARIE (Base di Calcolo)</b>
+                        <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:15px; margin-bottom: 25px;">
+                            <div><label>Fisso Mensile (€)</label><input type="number" id="u_c_fisso" placeholder="0" step="0.01"></div>
+                            <div><label>Scorporo IVA (in %)</label><input type="number" id="u_c_iva" placeholder="Es. 22" step="0.1"></div>
+                            <div><label>Trattenuta Struttura (%)</label><input type="number" id="u_c_struttura" placeholder="Es. 50" step="0.1"></div>
+                            <div><label>Trattenuta Agenzia Touch Welness (%)</label><input type="number" id="u_c_agenzia" placeholder="Es. 10" step="0.1"></div>
+                        </div>
+
+                        <b style="color:var(--gold); font-size:14px; margin-bottom:15px; border-top:1px solid var(--border-line); padding-top:20px; display:block">PROVVIGIONI NETTE OPERATORE</b>
+                        <p style="font-size:11px; color:var(--text-muted); margin-top:-5px; margin-bottom:15px;">Queste percentuali verranno calcolate <b>sull'imponibile al netto dell'IVA impostata sopra</b>.</p>
+                        <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:15px;">
+                            <div><label>Provvigione sui Massaggi (%)</label><input type="number" id="u_c_op_massaggi" placeholder="Es. 10" step="0.1"></div>
+                            <div><label>Provvigione sugli Accessi SPA (%)</label><input type="number" id="u_c_op_spa" placeholder="Es. 5" step="0.1"></div>
+                        </div>
+                    </div>
+                    <button class="btn-action w-100" onclick="app.saveUserDetail()"><i class="material-icons-round">save</i> SALVA COMMISSIONI</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="view-options" class="view-section">
+        <div class="card">
+            <h2>Opzioni Admin Master</h2>
+            <p style="font-size:14px; color:var(--text-muted)">Scegli il tema grafico del pannello direzionale.</p>
+            
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 20px; margin-top:20px;">
+                <div class="theme-card" id="admin-theme-dark" onclick="setAdminTheme('dark')" style="border: 2px solid var(--border-line); border-radius: 12px; padding: 20px; cursor: pointer; text-align:center; background: #0f172a; color: white; transition: 0.2s;">
+                    <i class="material-icons-round" style="font-size:40px; margin-bottom:10px;">dark_mode</i>
+                    <div style="font-weight:bold;">Notte (Premium)</div>
+                </div>
+                
+                <div class="theme-card" id="admin-theme-light" onclick="setAdminTheme('light')" style="border: 2px solid var(--border-line); border-radius: 12px; padding: 20px; cursor: pointer; text-align:center; background: #f8fafc; color: #0f172a; transition: 0.2s;">
+                    <i class="material-icons-round" style="font-size:40px; margin-bottom:10px; color:#f59e0b">light_mode</i>
+                    <div style="font-weight:bold;">Giorno (Chiaro)</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<script src="Admin_Menu.js"></script>
+<script>
+    function updateAdminThemeUI() {
+        const isLight = localStorage.getItem('tw_admin_theme') === 'light';
+        const cDark = document.getElementById('admin-theme-dark');
+        const cLight = document.getElementById('admin-theme-light');
+        if(cDark && cLight) {
+            cDark.style.borderColor = isLight ? "var(--border-line)" : "var(--accent)";
+            cDark.style.boxShadow = isLight ? "none" : "0 0 0 3px rgba(56, 189, 248, 0.3)";
+            cLight.style.borderColor = isLight ? "var(--accent)" : "var(--border-line)";
+            cLight.style.boxShadow = isLight ? "0 0 0 3px rgba(56, 189, 248, 0.3)" : "none";
+        }
+    }
+
+    function setAdminTheme(theme) {
+        localStorage.setItem('tw_admin_theme', theme);
+        if(theme === 'light') document.documentElement.classList.add('light-theme');
+        else document.documentElement.classList.remove('light-theme');
+        updateAdminThemeUI();
+    }
+    
+    document.addEventListener("DOMContentLoaded", () => {
+        updateAdminThemeUI();
+        const td = new Date();
+        const ySel = document.getElementById('fYear');
+        const mSel = document.getElementById('fMonth');
+        if(ySel) ySel.value = td.getFullYear();
+        if(mSel) mSel.value = String(td.getMonth() + 1).padStart(2, '0');
+
+        setTimeout(() => {
+            if(window.innerWidth <= 768) { 
+                const btn = document.getElementById('mobileCloseBtn');
+                if(btn) btn.style.display = 'block'; 
+            }
+        }, 100);
+    });
+</script>
+<script src="Admin_Core.js"></script>
+
+<script>
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+            navigator.serviceWorker.register('./sw.js')
+                .then(registration => {
+                    console.log('Service Worker registrato con successo:', registration.scope);
+                })
+                .catch(error => {
+                    console.log('Registrazione Service Worker fallita:', error);
+                });
+        });
+    }
+</script>
+
+</body>
+</html>

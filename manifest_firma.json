@@ -1,0 +1,21 @@
+{
+  "name": "Touch Welness Firma",
+  "short_name": "Firma SPA",
+  "description": "App Kiosk per Firma Consenso Informato",
+  "start_url": "./Firma.html",
+  "display": "standalone",
+  "background_color": "#0f172a",
+  "theme_color": "#1e293b",
+  "icons": [
+    {
+      "src": "https://via.placeholder.com/192/1e293b/38bdf8?text=Firma",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "https://via.placeholder.com/512/1e293b/38bdf8?text=Firma",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

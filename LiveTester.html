@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LIVE TESTER - TOUCH WELNESS</title>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
+<style>
+    body { font-family: -apple-system, sans-serif; background: #0f172a; color: white; text-align: center; padding: 40px 20px; margin: 0; }
+    .box { background: #1e293b; padding: 30px; border-radius: 15px; max-width: 700px; margin: 0 auto; box-shadow: 0 10px 30px rgba(0,0,0,0.5); border: 2px solid #38bdf8; }
+    h1 { color: #fbbf24; margin-top: 0; }
+    .description { color: #94a3b8; font-size: 14px; margin-bottom: 30px; line-height: 1.5; }
+    
+    .btn-container { display: flex; gap: 15px; justify-content: center; flex-wrap: wrap; }
+    button { border: none; padding: 15px 25px; font-size: 15px; font-weight: bold; border-radius: 8px; cursor: pointer; transition: 0.2s; box-shadow: 0 4px 6px rgba(0,0,0,0.3); }
+    button:active { transform: translateY(2px); box-shadow: none; }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+    
+    .btn-inject { background: #10b981; color: white; }
+    .btn-inject:hover:not(:disabled) { background: #059669; }
+    
+    .btn-clean { background: #ef4444; color: white; }
+    .btn-clean:hover:not(:disabled) { background: #dc2626; }
+
+    #log { margin-top: 30px; font-family: monospace; text-align: left; background: #000; padding: 15px; border-radius: 8px; height: 300px; overflow-y: auto; color: #38bdf8; font-size: 13px; border: 1px solid #334155; }
+    .log-success { color: #10b981; }
+    .log-error { color: #ef4444; }
+    .log-warn { color: #fbbf24; }
+</style>
+</head>
+<body>
+
+<div class="box">
+    <h1>🔴 LIVE TESTER AZIENDALE</h1>
+    <div class="description">
+        Questo strumento si connette al tuo <b>Firebase REALE</b>.<br>
+        Genererà <b>10 Strutture di Test</b> e 50 Operatori per permetterti di vedere le statistiche nel pannello Admin. Tutti i dati avranno il prefisso <b>TEST_</b> in modo da poter essere eliminati in un click senza intaccare il gestionale vero.
+    </div>
+    
+    <div class="btn-container">
+        <button id="btnInject" class="btn-inject" onclick="injectTestData()">1. INIETTA DATI TEST (10 Strutture)</button>
+        <button id="btnClean" class="btn-clean" onclick="cleanTestData()">2. PULISCI TUTTO (Rimuovi i Test)</button>
+    </div>
+    
+    <div id="log">Sistema in attesa...</div>
+</div>
+
+<script>
+    // Connessione a Firebase
+    const fbConfig = {
+        apiKey: "AIzaSyCrDuK7SWHdbzrJR-pNpxmRwGnZgV2Dd2Y",
+        authDomain: "touch-welness-massage.firebaseapp.com",
+        databaseURL: "https://touch-welness-massage-default-rtdb.europe-west1.firebasedatabase.app",
+        projectId: "touch-welness-massage"
+    };
+    if (!firebase.apps.length) firebase.initializeApp(fbConfig);
+    const dbRef = firebase.database().ref('MASTER_ADMIN_DB');
+
+    function addLog(msg, type = '') {
+        const logDiv = document.getElementById('log');
+        let colorClass = '';
+        if (type === 'success') colorClass = 'log-success';
+        if (type === 'error') colorClass = 'log-error';
+        if (type === 'warn') colorClass = 'log-warn';
+        
+        const time = new Date().toLocaleTimeString('it-IT');
+        logDiv.innerHTML += `<div class="${colorClass}">[${time}] ${msg}</div>`;
+        logDiv.scrollTop = logDiv.scrollHeight;
+    }
+
+    // Dati base
+    const nomi = ["Marco", "Giulia", "Luca", "Sofia", "Matteo", "Chiara", "Alessandro", "Francesca", "Andrea", "Valentina"];
+    const cognomi = ["Rossi", "Russo", "Ferrari", "Esposito", "Bianchi", "Romano", "Colombo", "Ricci", "Marino", "Greco"];
+    const servizi = [
+        { nome: "Massaggio Relax TEST", dur: 50, price: 80 },
+        { nome: "Trattamento SPA TEST", dur: 50, price: 100 }
+    ];
+    const baseTimes = ["10:00", "12:00", "14:00", "16:00", "18:00"];
+
+    function getRandom(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+
+    async function injectTestData() {
+        document.getElementById('btnInject').disabled = true;
+        document.getElementById('btnClean').disabled = true;
+        addLog("Preparazione pacchetto dati per 10 strutture...", "warn");
+
+        let updates = {};
+        
+        // Calcolo date: Oggi e Ieri
+        const dates = [];
+        for(let i=0; i<2; i++) {
+            let d = new Date(); d.setDate(d.getDate() - i);
+            dates.push(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`);
+        }
+
+        // Genera 10 Strutture
+        for (let i = 1; i <= 10; i++) {
+            let sid = `TEST_STRUCT_${i}`;
+            let structName = `HOTEL TEST ALPHA ${i}`;
+
+            // Creazione Struttura
+            updates[`structures/${sid}`] = {
+                id: sid, name: structName, archived: false, created: new Date().toISOString(),
+                info: {
+                    spaNick: `testspa${i}`, spaPass: "123",
+                    recNick: `testrec${i}`, recPass: "123",
+                    s_city: "Milano", s_addr: "Via Test " + i
+                }
+            };
+
+            // Creazione Dati Struttura (Servizi e Impostazioni)
+            updates[`structures_data/${sid}/settings`] = { cabine: 5 };
+            updates[`structures_data/${sid}/servizi`] = servizi.map((s, idx) => ({ id: "TS_"+idx, nome: s.nome, durata: s.dur, prezzo: s.price }));
+            
+            // Genera 5 Operatori per struttura
+            let opsStruttura = [];
+            for (let j = 1; j <= 5; j++) {
+                let nomeOp = getRandom(nomi); let cogOp = getRandom(cognomi);
+                let opNick = `test.${nomeOp.toLowerCase()}${j}`;
+                let opId = `TEST_OP_${i}_${j}`;
+                opsStruttura.push(opNick);
+
+                updates[`users/${opId}`] = {
+                    nick: opNick, pass: "123", name: nomeOp, surname: cogOp, structureId: sid,
+                    commissions: { fisso: 1000, iva: 22, struttura: 0, agenzia: 0, op_massaggi: 15, op_spa: 15 }
+                };
+
+                // Genera Appuntamenti Eseguiti per le statistiche (5 al giorno)
+                dates.forEach(date => {
+                    for(let a=0; a<5; a++) {
+                        let appId = `TEST_APP_${i}_${j}_${date}_${a}`;
+                        updates[`structures_data/${sid}/app/${date}/${a + (j*10)}`] = {
+                            id: appId, ora: baseTimes[a], cab: j, cam: 100 + a + j, cog: "Ospite Test",
+                            serv: servizi[0].nome, dur: servizi[0].dur, price: servizi[0].price,
+                            op: opNick, eseguito: true, pagato: true, note: "Generato da LiveTester"
+                        };
+                    }
+                });
+            }
+            
+            // Genera Chat di prova
+            updates[`structures_data/${sid}/chats/public/TEST_MSG_1`] = { sender: opsStruttura[0], text: "Test chat di gruppo", timestamp: Date.now(), date: "Oggi" };
+        }
+
+        try {
+            addLog("Invio massivo al database reale in corso...", "warn");
+            await dbRef.update(updates);
+            addLog("INIEZIONE COMPLETATA CON SUCCESSO!", "success");
+            addLog("Vai nell'Admin Panel e aggiorna la pagina: vedrai 10 nuove strutture TEST e tutte le statistiche calcolate sugli incassi e le provvigioni degli operatori!");
+            addLog("Credenziali test per Client SPA: testspa1 / 123");
+            addLog("Credenziali test per Client Reception: testrec1 / 123");
+        } catch (error) {
+            addLog("ERRORE: " + error.message, "error");
+        } finally {
+            document.getElementById('btnInject').disabled = false;
+            document.getElementById('btnClean').disabled = false;
+        }
+    }
+
+    async function cleanTestData() {
+        if(!confirm("ATTENZIONE: Verranno eliminati dal database tutti i dati creati da questo tester (Strutture, Operatori e Agende con ID 'TEST_'). Procedere?")) return;
+        
+        document.getElementById('btnInject').disabled = true;
+        document.getElementById('btnClean').disabled = true;
+        addLog("Inizio scansione database per ricerca dati TEST...", "warn");
+
+        try {
+            const snap = await dbRef.once('value');
+            const data = snap.val() || {};
+            let updatesToNull = {};
+            let count = 0;
+
+            // Cerca in Structures
+            if(data.structures) {
+                Object.keys(data.structures).forEach(key => {
+                    if(key.startsWith('TEST_')) { updatesToNull[`structures/${key}`] = null; count++; }
+                });
+            }
+
+            // Cerca in Users
+            if(data.users) {
+                Object.keys(data.users).forEach(key => {
+                    if(key.startsWith('TEST_')) { updatesToNull[`users/${key}`] = null; count++; }
+                });
+            }
+
+            // Cerca in Structures Data
+            if(data.structures_data) {
+                Object.keys(data.structures_data).forEach(key => {
+                    if(key.startsWith('TEST_')) { updatesToNull[`structures_data/${key}`] = null; count++; }
+                });
+            }
+
+            if (count === 0) {
+                addLog("Nessun dato di test trovato da eliminare.", "warn");
+            } else {
+                addLog(`Trovati ${count} nodi di test. Eliminazione in corso...`, "warn");
+                await dbRef.update(updatesToNull);
+                addLog("PULIZIA COMPLETATA! Il tuo database è tornato pulito.", "success");
+            }
+
+        } catch (error) {
+            addLog("ERRORE: " + error.message, "error");
+        } finally {
+            document.getElementById('btnInject').disabled = false;
+            document.getElementById('btnClean').disabled = false;
+        }
+    }
+</script>
+</body>
+</html>

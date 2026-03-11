@@ -1,0 +1,142 @@
+📖 TOUCH WELNESS - MASTER PROJECT DOCUMENTATION
+Data di stesura: (Attuale)
+Tipo di Software: Gestionale Web App Multi-Tenant (Client-Side Rendering)
+Stack Tecnologico: HTML5, CSS3, Vanilla JavaScript, Firebase Realtime Database (Backend & Auth), Netlify (Hosting).
+
+1. ARCHITETTURA DEL SISTEMA E ROUTING
+Il sistema è diviso in due macro-aree completamente separate per motivi di sicurezza e gerarchia:
+
+CLIENT (Staff / Struttura): Interfaccia usata dai dipendenti nelle SPA/Hotel.
+
+MASTER ADMIN (Direzione): Interfaccia usata dalla proprietà per gestire le licenze, lo staff, le strutture e visualizzare report finanziari/operativi.
+
+Sistema di Login (Lo Smistatore):
+Il file login.html funge da gatekeeper.
+
+Se l'utente inserisce le credenziali hardcoded admin e 171192, viene reindirizzato forzatamente nella cartella direzionale: ./admin/admin.html.
+
+Se l'utente inserisce credenziali valide di un operatore (presenti in MASTER_ADMIN_DB/users), il sistema salva nel localStorage l'ID della struttura di appartenenza (tw_structure_id) e lo fa entrare in ./Index.html. Da quel momento, ogni azione del client scriverà solo nel "cassetto" del database di quella specifica struttura.
+
+2. MAPPA DEL SITO E DIRECTORY (MOLTO RIGIDA PER NETLIFY)
+Il server (Netlify) è case-sensitive (distingue maiuscole e minuscole). La struttura delle cartelle deve essere esattamente questa:
+
+[ROOT] (Cartella Principale)
+
+login.html (Il portale d'accesso)
+
+Index.html (Agenda Massaggi - Griglia Oraria)
+
+Gestione.html (Impostazioni: Collaboratori, Magazzino operativo, WhatsApp)
+
+System.js (Librerie cloud e integrazioni Meta API)
+
+Menu.js (Menu di navigazione laterale iniettato via JS in tutte le pagine)
+
+Dati.JS (Array e costanti di base)
+
+debug.js (Sistema di tracking errori)
+
+manifest.json (PWA Web App support)
+
+[Cartella] Archivio
+
+Lista.html (Tabella appuntamenti, switch Eseguito/Pagato, annullamento)
+
+[Cartella] Piscina
+
+Piscina_GUI.html (Interfaccia accessi piscina)
+
+Piscina_Logic.js (Regole di inserimento)
+
+Piscina_DB.js (Connessione a Firebase modulo piscina)
+
+Piscina_Backup.js (Export CSV con parametri Cam, Nome, PAX, Area)
+
+[Cartella] admin
+
+admin.html (La Dashboard Direzionale Master)
+
+Admin_Core.js (Il motore logico della Direzione)
+
+3. STRUTTURA DEL DATABASE (FIREBASE REALTIME DB)
+Il nodo principale si chiama MASTER_ADMIN_DB. Al suo interno si ramifica in:
+
+users/: Contiene i profili staff. Chiavi: nick, pass, structureId, dati anagrafici e array di techniques e diplomas.
+
+structures/: Dati amministrativi della struttura (usati dall'Admin). Chiavi: id, name, licenseExp, archived (booleano), info (indirizzo, P.IVA).
+
+password_recoveries/: Log delle richieste di reset password dal login.
+
+structures_data/{strId}/: Il cuore operativo di ogni singola struttura. Contiene:
+
+app/{data}/: Array degli appuntamenti attivi di quel giorno (es. { "eseguito": true, "pagato": false, "ora": "10:00", ... }).
+
+deleted_apps/: Cestino degli appuntamenti annullati. Conserva una chiave deleteReason per i report admin.
+
+piscina_db_v1/: Accessi piscina.
+
+products/ e logs/: Catalogo magazzino e storico dei movimenti (Carico/Scarico).
+
+4. REGOLE DI STILE, CSS E UI/UX
+Palette Colori Root:
+
+--primary: #0f172a (Sfondo navbar e testi primari, Blu Navy Scuro)
+
+--accent: #38bdf8 (Azzurro per focus e hover)
+
+--gold: #fbbf24 (Oro per tasti primari ed evidenze premium)
+
+--bg: #f8fafc o #f1f5f9 (Grigio chiarissimo per lo sfondo app)
+
+--green: #10b981 (Tasti Eseguito, Successo)
+
+--red: #ef4444 (Tasti Elimina, Avvisi)
+
+Design System: Stondature (border-radius: 12px / 8px), bottoni sempre in grassetto. Font di sistema sans-serif (Apple-system, Roboto).
+
+Ottimizzazione Mobile (Responsive): * Il sistema utilizza le media queries (@media (max-width: 768px)).
+
+Tabelle su Mobile: Le classiche tabelle orizzontali (es. Lista.html) su smartphone devono collassare e trasformarsi in Card verticali. Ogni riga <tr> diventa un blocco, e le celle <td> usano l'attributo data-label per mostrare l'intestazione.
+
+Menu: Su desktop è visibile, su mobile diventa un header minimale in alto con un bottone "Hamburger" che apre una sidebar tramite transform (CSS) controllato via JS.
+
+5. STORICO BUG RISOLTI (LEZIONI APPRESE)
+BUG 1: "Page Not Found (404)" al Login su Netlify.
+
+Causa: Netlify è un server Linux case-sensitive e basato su root-directory rigide. Il login puntava a nomi con maiuscole (es. Admin_Dashboard.html) e i file caricati ne avevano altre. Inoltre, i percorsi delle cartelle non venivano rispettati.
+
+Soluzione definitiva adottata: Rigida architettura a cartelle. Il file direzionale è stato rinominato in tutto minuscolo (admin.html) dentro la cartella admin. Il login punta esattamente a admin/admin.html.
+
+BUG 2: "Pagina Bianca / Blocco totale" in Admin.
+
+Causa 1: Presenza di uno spinner di caricamento a tutto schermo (loadingOverlay) che, se il database tardava a rispondere (o se si verificava un minimo errore JS), non si nascondeva mai coprendo l'interfaccia. Soluzione: Eliminato il blocco e introdotto un Failsafe timeout che rimuove in ogni caso l'overlay dopo 2 secondi.
+
+Causa 2: Troncamento del codice CSS generato dall'AI che non chiudeva il tag <style>. Soluzione: Controllare sempre la chiusura dei tag e dividere file troppo lunghi.
+
+BUG 3: Tasti non funzionanti in Admin_Core.
+
+Causa: L'oggetto principale JS era dichiarato come const app = {}, non rendendolo visibile ai bottoni nell'HTML (Scope Issue). Soluzione: Dichiarato come window.app = {} per forzare la visibilità globale.
+
+BUG 4: Gestione Asincrona UI Agenda.
+
+Causa: Modificando le impostazioni (es. n° cabine), l'UI si riaggiornava leggendo il DB vecchio prima che il salvataggio fosse completato. Soluzione: UI sganciata dalla lettura DB per l'aggiornamento visivo immediato.
+
+6. MECCANICHE E FUNZIONI SPECIALI DA RICORDARE
+Le Leve in Archivio (Lista.html): "Eseguito" e "Pagato" non sono più semplici bottoni, ma Toggle Switch CSS. Il loro stato aggiorna in tempo reale Firebase (booleano true/false).
+
+Annullamento Appuntamento: Rimuove l'item da app/{data} e lo inserisce nel nodo deleted_apps, obbligando l'utente a inserire una causale.
+
+Sicurezza Master Admin: L'eliminazione definiva di una struttura dal database richiede il prompt della password Master (171192) tramite un modale. Senza di essa, Firebase eliminerà l'azione via JS. (Esiste anche l'Archiviazione che nasconde la struttura mettendola in fondo in grigio).
+
+Statistiche Master: La dashboard admin non legge dati statici, ma "spazzola" in tempo reale app e deleted_apps contando i booleani .eseguito e .pagato, raggruppandoli per Anno-Mese selezionati nei filtri.
+
+7. ⚠️ REGOLE D'ORO PER L'AI (ISTRUZIONI FUTURE)
+Quando ti viene fornito questo documento, devi rigorosamente attenerti a queste regole per ogni futura implementazione:
+
+Nessuna fusione file senza autorizzazione: Mantenere HTML, JS e CSS rigorosamente separati (o all'interno delle rispettive sezioni dei file già previsti) a meno che l'utente non richieda esplicitamente un "file unico". Fornire SEMPRE file interi in blocchi separati per il Copia/Incolla.
+
+Rispetto dei Nomi: Maiuscole/Minuscole nei path dei file (src="..." o href="...") non vanno MAI toccati. Netlify si rompe.
+
+Isolamento Dati (Tenant): Qualsiasi nuova funzione aggiunta al "Client" (es. nuovi form, nuovi report) deve obbligatoriamente fare riferimento a localStorage.getItem("tw_structure_id") per salvare o leggere i dati. MAI scrivere in root.
+
+Mobile First: Qualsiasi nuova tabella o griglia creata deve prevedere immediatamente la classe o la media query @media (max-width: 768px) per trasformarsi in Card Stack. L'interfaccia mobile non deve mai costringere l'utente allo scroll orizzontale.

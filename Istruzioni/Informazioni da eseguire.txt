@@ -1,0 +1,52 @@
+====================================================================
+MODULO ATTIVO: "PRIVACY DRIVE" (FIRMA DIGITALE E STOCCAGGIO ESTERNO)
+====================================================================
+Contesto per l'AI: Il seguente modulo è già stato implementato e funziona nel gestionale "Touch Welness". Tienilo a mente per non rompere le logiche esistenti durante le future modifiche.
+
+1. OBIETTIVO DEL MODULO
+Permettere la firma del modulo privacy su tablet (Mobile), generare un PDF, salvarlo su Google Drive (tramite webhook esterno) e collegare il link del file all'appuntamento sul PC, mantenendo il database Firebase leggerissimo.
+
+2. ARCHITETTURA E FLUSSO DATI (IL "PONTE RADIO")
+- File Dedicato: `DeviceSync.js`. Gestisce la comunicazione in tempo reale tra PC e Smartphone usando un nodo temporaneo su Firebase (`MASTER_ADMIN_DB/structures_data/{sId}/device_sync/{user}`).
+- Step 1 (PC): Da `index.html`, la reception clicca "Invia a Smartphone". `DeviceSync` scrive la richiesta su Firebase e si mette in ascolto.
+- Step 2 (Mobile): `Mobile.html` intercetta il segnale. Fa comparire dal basso un modal (Bottom Sheet) con un `<canvas>` per la firma grafica.
+- Step 3 (Webhook): Il Mobile converte la firma in Base64 e la invia a uno scenario Make.com/Zapier (tramite la costante `MAKE_WEBHOOK_URL`).
+- Step 4 (Drive): Make.com crea il PDF, lo salva su Drive e restituisce l'URL pubblico.
+- Step 5 (Ritorno): Il Mobile riceve l'URL, lo passa a `DeviceSync`, che avvisa il PC, salva l'URL nell'agenda ed ELIMINA il nodo di transito su Firebase per non appesantire il DB.
+
+3. STRUTTURA DATI FIREBASE (Regola Tassativa)
+Nel nodo degli appuntamenti (`app/{data}/`), vengono aggiunti SOLO due campi:
+- `privacySigned`: booleano (true/false)
+- `driveLink`: stringa (URL di Google Drive)
+NON vengono MAI salvate immagini Base64 o file PDF nel database Firebase.
+
+4. MODIFICHE AI FILE ESISTENTI (Da preservare)
+- `System.js` & `index.html`: Aggiunto il Box Privacy nel form appuntamenti (con badge di stato e bottoni di invio/apertura link).
+- `Mobile.html`: Aggiunto il Bottom Sheet invisibile `#sigModal` e la logica del Canvas.
+- `Lista.html`: Aggiunta la colonna "Privacy Drive" nella tabella globale per aprire i file vecchi.
+- `admin/admin.html` & `admin/Admin_Core.js`: Creata una dashboard dedicata (`#view-privacy`) e un menu per permettere al Master Admin di selezionare una struttura e vedere tutti i link Drive dei clienti in una tabella.
+
+5. METODO DI AGGIORNAMENTO CODICE (AutoPatcher)
+Per via della lunghezza dei file (`System.js`, `Admin_Core.js`, ecc.), è SEVERAMENTE VIETATO fornire all'utente file interi tagliati o riassunti. 
+Se devi fare modifiche a questo gestionale, devi generare un pacchetto JSON per il "SuperPatcher" usando la sintassi:
+`window.PATCH_DATA = { modifications: { "nomefile.js": [ {find: "codice_esistente", replace: "nuovo_codice"} ] } };`
+L'utente userà il suo script locale per iniettare il codice in sicurezza.
+====================================================================
+
+"Voglio implementare un sistema per far firmare il modulo Privacy ai clienti sul tablet (Mobile.html) e salvare il PDF finale su Google Drive, ma ho una regola tassativa: Zero Peso su Firebase. Non voglio intasare il database con stringhe in Base64 o file pesanti.
+
+Ecco come devi strutturare il lavoro:
+
+Motore Indipendente: Crea un file DeviceSync.js che faccia da 'ponte radio' tra il PC e lo Smartphone usando un nodo temporaneo in Firebase (device_sync).
+
+Flusso PC: Dal form dell'appuntamento (index.html e System.js), la reception clicca un bottone 'Invia a Smartphone'. Il PC invia il segnale su Firebase e resta in attesa.
+
+Flusso Mobile: Il tablet (Mobile.html) capta il segnale e fa salire un Bottom Sheet con un <canvas> per la firma.
+
+Integrazione Webhook: Quando il cliente firma e clicca salva, lo smartphone invia la firma in Base64 direttamente a un mio Webhook esterno (Make.com/Zapier), senza passare dal mio database.
+
+Salvataggio Leggero: Il Webhook mi restituirà il link del PDF su Google Drive. Lo smartphone lo comunicherà al PC tramite DeviceSync. Il PC salverà nell'appuntamento su Firebase SOLO un booleano (privacySigned: true) e una stringa testuale (driveLink: "https://..."), e poi distruggerà il nodo temporaneo di comunicazione.
+
+Integrazione UI: Aggiungi i bottoni per aprire il link di Google Drive nell'Agenda PC, nello Storico (Lista.html) e crea una tab dedicata nella dashboard della Direzione (admin.html e Admin_Core.js).
+
+ATTENZIONE: Usa il sistema del SuperPatcher JSON per darmi il codice. Non azzardarti a riassumere o tagliare i miei file originali per farmi spazio."

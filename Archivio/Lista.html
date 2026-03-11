@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lista Appuntamenti - TOUCH WELNESS</title>
+<link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
+<script src="../System.js"></script>
+<script src="../Menu.js"></script>
+<style>
+  :root { 
+      --bg-body: #0f172a; --bg-panel: #1e293b; --border-line: #334155; 
+      --text-main: #f8fafc; --text-muted: #94a3b8; 
+      --accent: #38bdf8; --gold: #fbbf24; --green: #10b981; --red: #ef4444; 
+  }
+
+  body { font-family: -apple-system, sans-serif; background: var(--bg-body); margin: 0; display: flex; flex-direction: column; height: 100vh; color: var(--text-main); }
+  * { box-sizing: border-box; }
+
+  /* NAVBAR E FILTRI */
+  .navbar { background: var(--bg-body); color: var(--text-main); padding: 12px 20px; display: flex; justify-content: space-between; align-items: center; z-index: 20; border-bottom: 1px solid var(--border-line); width: 100%; flex-shrink: 0; }
+  .btn-menu { background: var(--gold); color: #000; border: none; padding: 8px 15px; border-radius: 8px; font-weight: 900; cursor: pointer; display:flex; align-items:center; gap:5px; font-size: 13px; box-shadow: 0 3px 0 #b45309; }
+  .btn-menu:active { transform: translateY(3px); box-shadow: none; }
+
+  .top-bar { background: var(--bg-panel); padding: 15px 20px; display: flex; flex-direction: column; gap: 15px; border-bottom: 2px solid var(--border-line); flex-shrink: 0; box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
+  .filter-row { display: flex; gap: 10px; width: 100%; max-width: 1000px; margin: 0 auto; align-items: center; flex-wrap: wrap; }
+  
+  .search-box { display: flex; align-items: center; background: var(--bg-body); padding: 10px 15px; border-radius: 8px; flex: 1; min-width: 200px; border: 1px solid var(--border-line); }
+  .search-box input { border: none; background: transparent; color: var(--text-main); font-size: 14px; outline: none; width: 100%; margin-left: 10px; }
+  
+  .filter-select { background: var(--bg-body); color: var(--text-main); border: 1px solid var(--border-line); padding: 10px 15px; border-radius: 8px; outline: none; font-size: 14px; font-weight: bold; cursor: pointer; color-scheme: dark; }
+
+  /* LISTA CARD */
+  .main-content { flex: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; align-items: center; }
+  .list-container { width: 100%; max-width: 1000px; display: flex; flex-direction: column; gap: 15px; }
+
+  .app-card { background: var(--bg-panel); border: 1px solid var(--border-line); border-radius: 12px; padding: 20px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 4px 15px rgba(0,0,0,0.3); transition: 0.2s; flex-wrap: wrap; gap: 15px; }
+  .app-card:hover { border-color: var(--accent); }
+  
+  .app-info { display: flex; flex-direction: column; gap: 6px; flex: 1; min-width: 250px; }
+  .app-id { font-size: 12px; color: var(--accent); font-family: monospace; cursor: pointer; font-weight: bold; padding: 4px 8px; border: 1px dashed var(--accent); border-radius: 6px; display: inline-block; width: fit-content; transition: 0.2s; }
+  .app-id:hover { background: rgba(56, 189, 248, 0.1); }
+  
+  .app-name { font-size: 16px; font-weight: 900; color: var(--text-main); text-transform: uppercase; }
+  .app-details { font-size: 13px; color: var(--text-muted); display: flex; align-items: center; gap: 8px; }
+  .app-badge { background: rgba(255,255,255,0.05); color: var(--text-main); padding: 4px 8px; border-radius: 4px; font-size: 11px; font-weight: bold; border: 1px solid var(--border-line); }
+  
+  .app-actions { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .action-btn { background: var(--bg-body); border: 1px solid var(--border-line); border-radius: 8px; padding: 10px 15px; color: var(--text-muted); font-size: 11px; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 5px; transition: 0.2s; box-shadow: 0 2px 4px rgba(0,0,0,0.2); flex: 1; min-width: 120px; }
+  .action-btn i { font-size: 16px; }
+  
+  .action-btn.done { background: rgba(16, 185, 129, 0.1); color: var(--green); border-color: rgba(16, 185, 129, 0.3); }
+  .action-btn.paid { background: rgba(251, 191, 36, 0.1); color: var(--gold); border-color: rgba(251, 191, 36, 0.3); }
+  .action-btn.delete { background: rgba(239, 68, 68, 0.1); color: var(--red); border-color: rgba(239, 68, 68, 0.3); }
+
+  /* MODAL EDIT & DELETE */
+  .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 2000; align-items: center; justify-content: center; backdrop-filter: blur(4px); padding: 15px; }
+  .modal-box { background: var(--bg-panel); padding: 25px; border-radius: 16px; width: 100%; max-width: 450px; border: 1px solid var(--border-line); box-shadow: 0 10px 30px rgba(0,0,0,0.8); max-height: 90vh; overflow-y: auto; }
+  
+  .form-group { margin-bottom: 12px; width: 100%; position: relative; }
+  .form-group label { display: block; font-size: 10px; font-weight: bold; color: var(--text-muted); text-transform: uppercase; margin-bottom: 4px; }
+  .form-input { width: 100%; padding: 12px; border: 1px solid var(--border-line); border-radius: 8px; font-size: 13px; outline:none; background: var(--bg-body); color: var(--text-main); color-scheme: dark; transition: 0.2s; }
+  .form-input:focus { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.3); }
+
+  /* UNIFORMITÀ PULSANTI */
+  .btn-save { width: 100%; padding: 14px; background: var(--accent); color: #0f172a; border: none; border-radius: 8px; font-weight: 900; cursor: pointer; margin-top: 10px; transition: 0.2s; display: flex; align-items: center; justify-content: center; gap: 8px; font-size:13px; }
+  .btn-save i { font-size: 18px; }
+  .btn-save:hover { transform: translateY(-2px); box-shadow: 0 4px 10px rgba(0,0,0,0.3); }
+  
+  .btn-wa { background: rgba(16, 185, 129, 0.1) !important; color: var(--green) !important; border: 1px solid rgba(16, 185, 129, 0.3) !important; }
+  .btn-del { background: rgba(239, 68, 68, 0.1) !important; color: var(--red) !important; border: 1px solid rgba(239, 68, 68, 0.3) !important; }
+  .btn-outline { background: transparent !important; color: var(--text-muted) !important; border: 1px solid var(--border-line) !important; }
+
+  #toastBlue { visibility: hidden; min-width: 250px; background-color: var(--toast-blue, #2563eb); color: #fff; text-align: center; border-radius: 8px; padding: 12px; position: fixed; right: 30px; bottom: 30px; z-index: 9999; font-size: 13px; font-weight: bold; opacity: 0; transition: 0.5s; box-shadow: 0 10px 20px rgba(0,0,0,0.5); }
+  #toastBlue.show { visibility: visible; opacity: 1; bottom: 40px; }
+
+  @media (max-width: 768px) {
+      .app-card { flex-direction: column; align-items: flex-start; }
+      .app-actions { width: 100%; border-top: 1px solid var(--border-line); padding-top: 15px; justify-content: flex-start; }
+  }
+</style>
+</head>
+<body>
+
+<div id="toastBlue"><i class="material-icons-round" style="vertical-align:middle; font-size:16px;">info</i> <span id="toastMsg">Notifica</span></div>
+
+<div class="navbar">
+  <div style="font-weight:900; color:var(--text-main); letter-spacing:1px">LISTA APPUNTAMENTI</div>
+  <button class="btn-menu" onclick="window.toggleMenu(event)">MENU <i class="material-icons-round">menu</i></button>
+</div>
+
+<div class="top-bar">
+    <div class="filter-row">
+        <div class="search-box">
+            <i class="material-icons-round" style="color:var(--text-muted)">search</i>
+            <input type="text" id="searchInput" placeholder="Cerca ospite..." onkeyup="renderList()">
+        </div>
+    </div>
+    <div class="filter-row">
+        <select class="filter-select" id="fAnno" onchange="renderList()">
+            <option value="all">Tutti gli Anni</option>
+            <option value="2024">2024</option>
+            <option value="2025">2025</option>
+            <option value="2026">2026</option>
+        </select>
+        <select class="filter-select" id="fMese" onchange="renderList()">
+            <option value="all">Tutti i Mesi</option>
+            <option value="01">Gennaio</option>
+            <option value="02">Febbraio</option>
+            <option value="03">Marzo</option>
+            <option value="04">Aprile</option>
+            <option value="05">Maggio</option>
+            <option value="06">Giugno</option>
+            <option value="07">Luglio</option>
+            <option value="08">Agosto</option>
+            <option value="09">Settembre</option>
+            <option value="10">Ottobre</option>
+            <option value="11">Novembre</option>
+            <option value="12">Dicembre</option>
+        </select>
+        <select class="filter-select" id="fStato" onchange="renderList()">
+            <option value="all">Tutti gli Stati</option>
+            <option value="eseguito">Eseguiti</option>
+            <option value="pagato">Pagati</option>
+            <option value="dapagare">Da Pagare</option>
+        </select>
+        <select class="filter-select" id="fTipo" onchange="renderList()">
+            <option value="all">Tutte le Tipologie</option>
+            <option value="spa">SPA / Percorsi</option>
+            <option value="massaggi">Massaggi</option>
+        </select>
+    </div>
+</div>
+
+<div class="main-content">
+    <div class="list-container" id="listView">
+        <div style="text-align:center; padding:40px; color:var(--text-muted); font-weight:bold;">Sincronizzazione in corso...</div>
+    </div>
+</div>
+
+<div id="editModal" class="modal-overlay">
+    <div class="modal-box">
+        <h3 style="margin-top:0; color:var(--gold); border-bottom:1px solid var(--border-line); padding-bottom:10px; text-transform:uppercase;">Modifica Appuntamento</h3>
+        <input type="hidden" id="eId">
+        <input type="hidden" id="eOldDate">
+        <input type="hidden" id="eCab">
+
+        <div style="display:flex; gap:10px">
+            <div class="form-group" style="flex:1"><label>Data</label><input type="date" id="eDate" class="form-input"></div>
+            <div class="form-group" style="flex:1"><label>Orario</label><input type="time" id="eOra" class="form-input"></div>
+        </div>
+        
+        <div style="display:flex; gap:10px">
+            <div class="form-group" style="flex:1"><label>Camera</label><input type="number" id="eCam" class="form-input"></div>
+            <div class="form-group" style="flex:1.5"><label>Telefono</label><input type="tel" id="eTel" class="form-input"></div>
+        </div>
+        
+        <div class="form-group"><label>Ospite</label><input type="text" id="eCog" class="form-input"></div>
+        <div class="form-group"><label>Operatore</label><input type="text" id="eOp" class="form-input"></div>
+        
+        <div style="background:var(--bg-body); padding:10px; border-radius:8px; margin-bottom:15px; border:1px solid var(--border-line);">
+            <div style="font-size:10px; color:var(--text-muted); font-weight:bold; margin-bottom:5px;">SERVIZIO PRENOTATO</div>
+            <div id="eServName" style="font-weight:bold; font-size:14px; color:var(--accent);"></div>
+        </div>
+
+        <div class="form-group"><label>Note</label><textarea id="eNote" class="form-input" rows="2"></textarea></div>
+
+        <div style="display:flex; flex-direction:column; gap:10px; margin-top:15px;">
+            <button class="btn-save" onclick="saveEdit()"><i class="material-icons-round">save</i> SALVA MODIFICHE</button>
+            <button class="btn-save btn-wa" onclick="shareWA()"><i class="material-icons-round">whatsapp</i> INVIA WHATSAPP</button>
+            <button class="btn-save btn-del" onclick="promptDelete(document.getElementById('eId').value, document.getElementById('eOldDate').value)"><i class="material-icons-round">delete</i> ELIMINA PRENOTAZIONE</button>
+            <button class="btn-save btn-outline" onclick="document.getElementById('editModal').style.display='none'">ANNULLA</button>
+        </div>
+    </div>
+</div>
+
+<div id="deleteModal" class="modal-overlay" onclick="if(event.target===this) this.style.display='none'">
+    <div class="modal-box" style="max-width: 350px; text-align: center; z-index: 2500;">
+        <h3 style="margin-top:0; color:var(--red); border-bottom:1px solid var(--border-line); padding-bottom:10px;">ELIMINA PRENOTAZIONE</h3>
+        <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 20px;">Inserisci il motivo dell'annullamento. L'azione sarà registrata.</p>
+        <input type="text" id="delReasonInput" class="form-input" placeholder="Motivo cancellazione..." style="margin-bottom: 20px;" onkeypress="if(event.key==='Enter'){ event.preventDefault(); confirmDelete(); }">
+        <div style="display:flex; gap:8px">
+            <button class="btn-save btn-outline" style="flex:1; margin:0;" onclick="document.getElementById('deleteModal').style.display='none'">ANNULLA</button>
+            <button class="btn-save btn-del" style="flex:1; margin:0;" onclick="confirmDelete()">CONFERMA</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    let allApps = [];
+    
+    // VARIABILE BLINDATA ESCLUSIVA PER LA LISTA
+    const localStructId = localStorage.getItem("tw_structure_id");
+    if(!localStructId) window.location.href="../login.html";
+
+    function showToast(msg) { const x = document.getElementById("toastBlue"); if(x) { x.className = "show"; document.getElementById("toastMsg").innerText = msg; setTimeout(() => x.className = x.className.replace("show", ""), 3000); } }
+
+    function initFilters() {
+        const today = new Date();
+        const yy = today.getFullYear().toString();
+        const mm = String(today.getMonth() + 1).padStart(2, '0');
+        document.getElementById("fAnno").value = yy;
+        document.getElementById("fMese").value = mm;
+    }
+    initFilters();
+
+    firebase.database().ref('MASTER_ADMIN_DB/structures_data/' + localStructId + '/app').on('value', snap => {
+        try {
+            const data = snap.val();
+            allApps = [];
+            
+            if (data) {
+                Object.keys(data).forEach(dateStr => {
+                    const dayData = data[dateStr];
+                    if (!dayData) return;
+                    
+                    const dayArray = Array.isArray(dayData) ? dayData : Object.values(dayData);
+                    dayArray.forEach(app => {
+                        if(app && app.id) { 
+                            allApps.push({
+                                id: app.id,
+                                fullDate: dateStr || "2000-01-01",
+                                ora: app.ora || "00:00",
+                                cam: app.cam || "",
+                                cog: app.cog || "N.D.",
+                                serv: app.serv || "Generico",
+                                op: app.op || "N.D.",
+                                price: app.price || 0,
+                                dur: app.dur || 30,
+                                eseguito: app.eseguito === true,
+                                pagato: app.pagato === true,
+                                tel: app.tel || "",
+                                note: app.note || "",
+                                cab: app.cab || "1",
+                                driveLink: app.driveLink || null
+                            }); 
+                        }
+                    });
+                });
+            }
+
+            allApps.sort((a, b) => {
+                const strA = a.fullDate + " " + a.ora;
+                const strB = b.fullDate + " " + b.ora;
+                return strB.localeCompare(strA);
+            });
+
+            renderList();
+        } catch(e) {
+            console.error("Errore fatale nella sincronizzazione:", e);
+            document.getElementById("listView").innerHTML = `<div style="text-align:center; padding:40px; color:var(--red); font-weight:bold;">Impossibile leggere l'archivio. Errore di connessione.</div>`;
+        }
+    });
+
+    function toggleState(appId, date, field) {
+        const targetApp = allApps.find(a => a.id === appId);
+        if(!targetApp) return;
+        
+        const newVal = !targetApp[field];
+        
+        firebase.database().ref('MASTER_ADMIN_DB/structures_data/' + localStructId + '/app/' + date).once('value').then(snap => {
+            let dayArray = snap.val() || [];
+            if(!Array.isArray(dayArray)) dayArray = Object.values(dayArray);
+            
+            const idx = dayArray.findIndex(x => x && x.id === appId);
+            if(idx > -1) {
+                dayArray[idx][field] = newVal;
+                firebase.database().ref('MASTER_ADMIN_DB/structures_data/' + localStructId + '/app/' + date).set(dayArray).then(() => {
+                    showToast("Stato " + field.toUpperCase() + " Aggiornato!");
+                });
+            }
+        });
+    }
+
+    function promptDelete(id, date) {
+        document.getElementById("eId").value = id;
+        document.getElementById("eOldDate").value = date;
+        document.getElementById('delReasonInput').value = "";
+        document.getElementById('deleteModal').style.display = 'flex';
+        setTimeout(() => document.getElementById('delReasonInput').focus(), 100);
+    }
+
+    function renderList() {
+        try {
+            const query = (document.getElementById("searchInput").value || "").toLowerCase();
+            const fAnno = document.getElementById("fAnno").value;
+            const fMese = document.getElementById("fMese").value;
+            const fStato = document.getElementById("fStato").value;
+            const fTipo = document.getElementById("fTipo").value;
+            
+            let filtered = allApps.filter(a => {
+                const matchQuery = (a.cog || '').toLowerCase().includes(query) || (a.id || '').toLowerCase().includes(query);
+                if(!matchQuery) return false;
+
+                const dParts = (a.fullDate || "").split('-'); 
+                if(fAnno !== 'all' && dParts.length > 0 && dParts[0] !== fAnno) return false;
+                if(fMese !== 'all' && dParts.length > 1 && dParts[1] !== fMese) return false;
+
+                if(fStato === 'eseguito' && !a.eseguito) return false;
+                if(fStato === 'pagato' && !a.pagato) return false;
+                if(fStato === 'dapagare' && a.pagato) return false;
+
+                const servNome = (a.serv || '').toLowerCase();
+                if(fTipo === 'spa' && !servNome.includes('spa')) return false;
+                if(fTipo === 'massaggi' && !servNome.includes('massagg')) return false;
+
+                return true;
+            });
+
+            const container = document.getElementById("listView");
+            
+            if(filtered.length === 0) {
+                container.innerHTML = `<div style="text-align:center; padding:40px; color:var(--text-muted);">Nessun appuntamento corrisponde ai criteri.</div>`;
+                return;
+            }
+
+            container.innerHTML = filtered.map(a => {
+                const isEseg = a.eseguito === true;
+                const isPaid = a.pagato === true;
+                const esegClass = isEseg ? "done" : "";
+                const paidClass = isPaid ? "paid" : "";
+                const dParts = (a.fullDate || "").split('-');
+                const displayDate = dParts.length === 3 ? `${dParts[2]}/${dParts[1]}/${dParts[0]}` : a.fullDate;
+
+                return `
+                <div class="app-card">
+                    <div class="app-info">
+                        <div class="app-id" onclick="openEditModal('${a.id}')"><i class="material-icons-round" style="font-size:12px; vertical-align:middle;">edit</i> #${a.id}</div>
+                        <div class="app-name">${a.cog || 'N.D.'} <span style="color:var(--text-muted); font-size:12px; font-weight:normal;">(Cam ${a.cam || '?'})</span></div>
+                        <div class="app-details">
+                            <i class="material-icons-round" style="font-size:14px; color:var(--accent)">calendar_today</i> ${displayDate} &nbsp;|&nbsp; 
+                            <i class="material-icons-round" style="font-size:14px; color:var(--accent)">schedule</i> ${a.ora} &nbsp;|&nbsp;
+                            <i class="material-icons-round" style="font-size:14px; color:var(--gold)">euro</i> ${a.price || 0} €
+                        </div>
+                        <div style="margin-top:5px; display:flex; gap:8px; flex-wrap:wrap;">
+                            <span class="app-badge">${a.serv || 'Generico'}</span>
+                            <span class="app-badge" style="background:var(--bg-body); color:var(--text-muted)">Op: ${a.op || 'N.D.'}</span>
+                        </div>
+                    </div>
+                    <div class="app-actions">
+                        <button class="action-btn" style="display:${a.driveLink ? 'flex' : 'none'}; border-color:var(--accent); color:var(--accent);" onclick="window.open('${a.driveLink}', '_blank')">
+                            <i class="material-icons-round">picture_as_pdf</i> PRIVACY PDF
+                        </button>
+                        <button class="action-btn ${esegClass}" onclick="toggleState('${a.id}', '${a.fullDate}', 'eseguito')">
+                            <i class="material-icons-round">${isEseg ? 'check_circle' : 'radio_button_unchecked'}</i> 
+                            ${isEseg ? 'ESEGUITO' : 'ESEGUITO'}
+                        </button>
+                        <button class="action-btn ${paidClass}" onclick="toggleState('${a.id}', '${a.fullDate}', 'pagato')">
+                            <i class="material-icons-round">${isPaid ? 'monetization_on' : 'account_balance_wallet'}</i> 
+                            ${isPaid ? 'PAGATO' : 'PAGATO'}
+                        </button>
+                        <button class="action-btn delete" onclick="promptDelete('${a.id}', '${a.fullDate}')">
+                            <i class="material-icons-round">delete</i> ELIMINA
+                        </button>
+                    </div>
+                </div>
+                `;
+            }).join('');
+        } catch(err) {
+            console.error("Errore durante il rendering HTML:", err);
+        }
+    }
+
+    function openEditModal(id) {
+        const app = allApps.find(a => a.id === id);
+        if(!app) return;
+        
+        document.getElementById("eId").value = app.id;
+        document.getElementById("eOldDate").value = app.fullDate;
+        document.getElementById("eDate").value = app.fullDate;
+        document.getElementById("eOra").value = app.ora;
+        document.getElementById("eCam").value = app.cam || "";
+        document.getElementById("eCog").value = app.cog || "";
+        document.getElementById("eTel").value = app.tel || "";
+        document.getElementById("eOp").value = app.op || "";
+        document.getElementById("eNote").value = app.note || "";
+        document.getElementById("eCab").value = app.cab || "1";
+        
+        document.getElementById("eServName").innerText = `${app.serv || 'N.D.'} (${app.dur || 30} min - ${app.price || 0} €)`;
+        
+        document.getElementById("editModal").style.display = "flex";
+    }
+
+    function saveEdit() {
+        const id = document.getElementById("eId").value;
+        const selDate = document.getElementById("eDate").value;
+        const oldDate = document.getElementById("eOldDate").value;
+        
+        const app = allApps.find(a => a.id === id);
+        if(!app) return;
+
+        app.ora = document.getElementById("eOra").value;
+        app.cam = document.getElementById("eCam").value;
+        app.cog = document.getElementById("eCog").value.trim();
+        app.tel = document.getElementById("eTel").value.trim();
+        app.op = document.getElementById("eOp").value;
+        app.note = document.getElementById("eNote").value;
+
+        const dbRefLocal = firebase.database().ref('MASTER_ADMIN_DB/structures_data/' + localStructId);
+
+        if(oldDate !== selDate) {
+            firebase.database().ref('MASTER_ADMIN_DB/structures_data/' + localStructId + '/app/' + oldDate).once('value').then(snap => {
+                let oldApps = snap.val() || [];
+                if(!Array.isArray(oldApps)) oldApps = Object.values(oldApps);
+                oldApps = oldApps.filter(x => x && x.id !== id);
+                dbRefLocal.child('app').child(oldDate).set(oldApps);
+            });
+        }
+
+        firebase.database().ref('MASTER_ADMIN_DB/structures_data/' + localStructId + '/app/' + selDate).once('value').then(snap => {
+            let apps = snap.val() || [];
+            if(!Array.isArray(apps)) apps = Object.values(apps);
+            
+            const idx = apps.findIndex(x => x && x.id === id);
+            if(idx > -1) { apps[idx] = app; } else { apps.push(app); }
+            
+            dbRefLocal.child('app').child(selDate).set(apps).then(() => {
+                document.getElementById("editModal").style.display = "none";
+                showToast("Modifiche Salvate!");
+            });
+        });
+    }
+
+    function confirmDelete() {
+        const motivo = document.getElementById('delReasonInput').value.trim();
+        if(!motivo) {
+            showToast("Inserisci un motivo obbligatorio!");
+            return;
+        }
+
+        const id = document.getElementById("eId").value;
+        const d = document.getElementById("eOldDate").value;
+        const appToDel = allApps.find(a => a.id === id);
+
+        firebase.database().ref('MASTER_ADMIN_DB/structures_data/' + localStructId + '/app/' + d).once('value').then(snap => {
+            let apps = snap.val() || [];
+            if(!Array.isArray(apps)) apps = Object.values(apps);
+            
+            apps = apps.filter(x => x && x.id !== id);
+            
+            firebase.database().ref('MASTER_ADMIN_DB/structures_data/' + localStructId).child('app').child(d).set(apps).then(() => {
+                if(appToDel) {
+                    appToDel.deleteReason = motivo;
+                    appToDel.date = d;
+                    appToDel.deletedAt = new Date().toLocaleString('it-IT');
+                    appToDel.deletedBy = localStorage.getItem("tw_user") || "Staff";
+                    firebase.database().ref('MASTER_ADMIN_DB/structures_data/' + localStructId).child('deleted_apps').push(appToDel);
+                }
+                document.getElementById("deleteModal").style.display = "none";
+                document.getElementById("editModal").style.display = "none";
+                showToast("Appuntamento Eliminato e Registrato.");
+            });
+        });
+    }
+
+    function shareWA() {
+        const tel = document.getElementById("eTel").value;
+        if(tel) {
+            window.open(`https://wa.me/${tel}?text=Gentile%20Ospite,%20ti%20ricordiamo%20il%20tuo%20appuntamento%20nella%20nostra%20SPA.`, '_blank');
+        } else { showToast("Nessun numero inserito."); }
+    }
+</script>
+</body>
+</html>

@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Dashboard Finanziaria - TOUCH WELNESS</title>
+<link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
+<script src="Menu.js"></script>
+<style>
+  :root { 
+      --bg-body: #0f172a; --bg-panel: #1e293b; --border-line: #334155; 
+      --text-main: #f8fafc; --text-muted: #94a3b8; 
+      --accent: #38bdf8; --gold: #fbbf24; --green: #10b981; --red: #ef4444; --purple: #a855f7;
+  }
+
+  body { font-family: -apple-system, sans-serif; background: var(--bg-body); margin: 0; padding: 0; color: var(--text-main); display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+  * { box-sizing: border-box; }
+
+  .navbar { background: var(--bg-body); padding: 12px 20px; display: flex; justify-content: space-between; align-items: center; z-index: 20; border-bottom: 1px solid var(--border-line); flex-shrink: 0; }
+  .btn-menu { background: var(--gold); color: #000; border: none; padding: 8px 15px; border-radius: 8px; font-weight: 900; cursor: pointer; display:flex; align-items:center; gap:5px; font-size: 13px; }
+
+  .main-content { flex: 1; overflow-y: auto; padding: 20px; }
+  .container { max-width: 1000px; margin: 0 auto; }
+
+  .filter-bar { background: var(--bg-panel); padding: 15px; border-radius: 12px; border: 1px solid var(--border-line); display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
+  .filter-select { background: var(--bg-body); color: var(--text-main); border: 1px solid var(--border-line); padding: 10px 15px; border-radius: 8px; outline: none; font-size: 14px; font-weight: bold; cursor: pointer; color-scheme: dark; flex: 1; min-width: 150px; }
+
+  /* CARDS FINANZIARIE */
+  .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 15px; margin-bottom: 30px; }
+  .stat-card { background: var(--bg-panel); padding: 25px; border-radius: 16px; border: 1px solid var(--border-line); border-left: 5px solid var(--accent); display: flex; flex-direction: column; box-shadow: 0 4px 15px rgba(0,0,0,0.3); }
+  .stat-card.purple { border-left-color: var(--purple); }
+  .stat-card.green { border-left-color: var(--green); }
+  .stat-card.gold { border-left-color: var(--gold); background: rgba(251, 191, 36, 0.05); }
+  
+  .stat-title { font-size: 12px; color: var(--text-muted); font-weight: bold; text-transform: uppercase; margin-bottom: 10px; }
+  .stat-value { font-size: 32px; font-weight: 900; color: var(--text-main); }
+  
+  /* LISTA APPUNTAMENTI */
+  .section-title { font-size: 16px; color: var(--gold); border-bottom: 2px solid var(--border-line); padding-bottom: 10px; margin-bottom: 15px; text-transform: uppercase; }
+  .app-list { display: flex; flex-direction: column; gap: 10px; }
+  .app-card { background: var(--bg-panel); padding: 15px; border-radius: 10px; border: 1px solid var(--border-line); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; }
+  .app-info b { font-size: 14px; display: block; margin-bottom: 3px; }
+  .app-info span { font-size: 12px; color: var(--text-muted); display: block; }
+  .app-price { font-size: 16px; font-weight: 900; color: var(--green); background: rgba(16, 185, 129, 0.1); padding: 8px 15px; border-radius: 8px; border: 1px solid rgba(16, 185, 129, 0.3); }
+  .app-unpaid { color: var(--red); background: rgba(239, 68, 68, 0.1); border-color: rgba(239, 68, 68, 0.3); }
+
+  /* PASSWORD GATE */
+  .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: var(--bg-body); z-index: 9999; align-items: center; justify-content: center; padding: 20px; }
+  .modal-box { background: var(--bg-panel); padding: 30px; border-radius: 16px; width: 100%; max-width: 400px; border: 1px solid var(--border-line); text-align: center; box-shadow: 0 10px 40px rgba(0,0,0,0.8); }
+  .form-input { width: 100%; padding: 15px; border: 1px solid var(--border-line); border-radius: 8px; font-size: 15px; outline:none; background: var(--bg-body); color: var(--text-main); color-scheme: dark; margin-bottom: 20px; text-align: center; }
+  .form-input:focus { border-color: var(--purple); box-shadow: 0 0 0 2px rgba(168, 85, 247, 0.3); }
+  .btn-save { width: 100%; padding: 15px; background: var(--purple); color: white; border: none; border-radius: 8px; font-weight: 900; cursor: pointer; transition: 0.2s; font-size:14px; }
+  .btn-save:hover { transform: translateY(-2px); box-shadow: 0 4px 10px rgba(0,0,0,0.3); }
+
+  #toastBlue { visibility: hidden; min-width: 250px; background: var(--red); color: #fff; text-align: center; border-radius: 8px; padding: 16px; position: fixed; z-index: 10000; right: 30px; bottom: 30px; font-size: 13px; font-weight: bold; opacity: 0; transition: 0.5s; box-shadow: 0 10px 20px rgba(0,0,0,0.5); }
+  #toastBlue.show { visibility: visible; opacity: 1; bottom: 40px; }
+</style>
+</head>
+<body>
+
+<div id="toastBlue"><span id="toastMsg">Notifica</span></div>
+
+<div id="pwdGate" class="modal-overlay" style="display:flex;">
+    <div class="modal-box">
+        <h3 style="color:var(--purple); margin-top:0; border-bottom: 1px solid var(--border-line); padding-bottom:15px; margin-bottom:20px;">ACCESSO RISERVATO</h3>
+        <p style="font-size:13px; color:var(--text-muted); margin-bottom:20px;">Inserisci la password master della Struttura per visualizzare i dati finanziari.</p>
+        <input type="password" id="gatePwd" class="form-input" placeholder="Password Struttura" onkeypress="if(event.key==='Enter') checkGatePwd()">
+        <button class="btn-save" onclick="checkGatePwd()">SBLOCCA AREA</button>
+    </div>
+</div>
+
+<div class="navbar">
+  <div style="font-weight:900; color:var(--text-main); letter-spacing:1px">DASHBOARD <span style="font-size:10px; color:var(--purple)">FINANZIARIA</span></div>
+  <button class="btn-menu" onclick="window.toggleMenu(event)">MENU <i class="material-icons-round">menu</i></button>
+</div>
+
+<div class="main-content">
+    <div class="container">
+        
+        <div class="filter-bar">
+            <select class="filter-select" id="fAnno" onchange="loadData()">
+                <option value="2024">2024</option><option value="2025">2025</option><option value="2026">2026</option>
+            </select>
+            <select class="filter-select" id="fMese" onchange="loadData()">
+                <option value="01">Gennaio</option><option value="02">Febbraio</option><option value="03">Marzo</option>
+                <option value="04">Aprile</option><option value="05">Maggio</option><option value="06">Giugno</option>
+                <option value="07">Luglio</option><option value="08">Agosto</option><option value="09">Settembre</option>
+                <option value="10">Ottobre</option><option value="11">Novembre</option><option value="12">Dicembre</option>
+            </select>
+        </div>
+
+        <div class="stats-grid">
+            <div class="stat-card purple">
+                <div class="stat-title">INCASSO MASSAGGI (PAGATO)</div>
+                <div class="stat-value" id="valMassaggi">0.00 €</div>
+            </div>
+            <div class="stat-card green">
+                <div class="stat-title">INCASSO PERCORSI SPA (PAGATO)</div>
+                <div class="stat-value" id="valSpa">0.00 €</div>
+            </div>
+            <div class="stat-card gold">
+                <div class="stat-title">TOTALE GENERALE INCASSATO</div>
+                <div class="stat-value" style="color:var(--gold)" id="valTotale">0.00 €</div>
+            </div>
+        </div>
+
+        <h3 class="section-title">DETTAGLIO APPUNTAMENTI (Mese Selezionato)</h3>
+        <div class="app-list" id="appListUI">
+            <div style="text-align:center; padding:30px; color:var(--text-muted)">Seleziona filtri e attendi caricamento...</div>
+        </div>
+
+    </div>
+</div>
+
+<script>
+    const fbConfig = { apiKey: "AIzaSyCrDuK7SWHdbzrJR-pNpxmRwGnZgV2Dd2Y", authDomain: "touch-welness-massage.firebaseapp.com", databaseURL: "https://touch-welness-massage-default-rtdb.europe-west1.firebasedatabase.app", projectId: "touch-welness-massage" };
+    if (!firebase.apps.length) firebase.initializeApp(fbConfig);
+
+    const twStructId = localStorage.getItem("tw_structure_id");
+    if(!twStructId) window.location.href = "../login.html";
+
+    function showToast(msg) { const x = document.getElementById("toastBlue"); x.innerText = msg; x.className = "show"; setTimeout(() => x.className = x.className.replace("show", ""), 3000); }
+
+    // Imposta Mese Corrente
+    const d = new Date();
+    document.getElementById("fAnno").value = d.getFullYear().toString();
+    document.getElementById("fMese").value = String(d.getMonth() + 1).padStart(2, '0');
+
+    function checkGatePwd() {
+        const p = document.getElementById('gatePwd').value;
+        if(!p) return showToast("Inserisci la password.");
+        
+        firebase.database().ref('MASTER_ADMIN_DB/structures').once('value').then(snap => {
+            const structs = snap.val() || {};
+            let isValid = false;
+            for(let key in structs) {
+                if(structs[key].id === twStructId && structs[key].info.structPass === p) {
+                    isValid = true; break;
+                }
+            }
+            if(isValid) {
+                document.getElementById('pwdGate').style.display = 'none';
+                loadData();
+            } else { showToast("Password Errata"); }
+        });
+    }
+
+    function loadData() {
+        const selYear = document.getElementById("fAnno").value;
+        const selMonth = document.getElementById("fMese").value;
+        
+        firebase.database().ref('MASTER_ADMIN_DB/structures_data/' + twStructId + '/app').once('value').then(snap => {
+            const data = snap.val() || {};
+            let totSpa = 0; let totMassaggi = 0;
+            let listHtml = ""; let count = 0;
+
+            Object.keys(data).forEach(dateStr => {
+                const parts = dateStr.split('-');
+                if(parts[0] === selYear && parts[1] === selMonth) {
+                    let dayApps = Array.isArray(data[dateStr]) ? data[dateStr] : Object.values(data[dateStr]);
+                    
+                    // Ordina appuntamenti per orario
+                    dayApps.sort((a,b) => (a.ora||"").localeCompare(b.ora||"")).forEach(a => {
+                        if(!a) return;
+                        
+                        let price = parseFloat(a.price) || 0;
+                        const servName = (a.serv || "").toLowerCase();
+                        const isSpa = servName.includes('spa') || servName.includes('percors');
+                        
+                        // Somma solo se PAGATO
+                        if(a.pagato === true) {
+                            if(isSpa) totSpa += price; else totMassaggi += price;
+                        }
+
+                        // Genera UI della Lista
+                        const paidClass = a.pagato ? "app-price" : "app-price app-unpaid";
+                        const paidText = a.pagato ? `${price.toFixed(2)} €` : `NON PAGATO (${price.toFixed(2)} €)`;
+                        
+                        listHtml += `
+                        <div class="app-card">
+                            <div class="app-info">
+                                <b>${dateStr.split('-').reverse().join('/')} | ${a.ora} - Cam ${a.cam || '?'}</b>
+                                <span>Ospite: ${a.cog || 'N.D.'}</span>
+                                <span style="color:var(--accent)">Trattamento: ${a.serv || 'N.D.'}</span>
+                            </div>
+                            <div class="${paidClass}">${paidText}</div>
+                        </div>`;
+                        count++;
+                    });
+                }
+            });
+
+            document.getElementById('valMassaggi').innerText = totMassaggi.toFixed(2) + " €";
+            document.getElementById('valSpa').innerText = totSpa.toFixed(2) + " €";
+            document.getElementById('valTotale').innerText = (totSpa + totMassaggi).toFixed(2) + " €";
+
+            if(count === 0) listHtml = "<div style='text-align:center; padding:30px; color:var(--text-muted)'>Nessun appuntamento registrato in questo mese.</div>";
+            document.getElementById('appListUI').innerHTML = listHtml;
+        });
+    }
+</script>
+</body>
+</html>

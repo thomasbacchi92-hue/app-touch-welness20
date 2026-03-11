@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Analytics - TOUCH WELNESS</title>
+<link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
+<script src="../System.js"></script>
+<style>
+  :root { --primary: #0f172a; --accent: #38bdf8; --gold: #fbbf24; --bg: #f1f5f9; }
+  body { font-family: -apple-system, sans-serif; background: var(--bg); margin: 0; padding: 20px; color: var(--primary); }
+  .header { display: flex; justify-content: space-between; align-items: center; max-width: 1000px; margin: 0 auto 30px; }
+  .btn-back { background: var(--primary); color: white; padding: 10px 20px; border-radius: 10px; text-decoration: none; font-weight: bold; font-size: 14px; }
+  
+  .filter-bar { background: white; padding: 20px; border-radius: 15px; max-width: 1000px; margin: 0 auto 20px; display: flex; gap: 15px; align-items: end; box-shadow: 0 5px 15px rgba(0,0,0,0.05); }
+  .field { display: flex; flex-direction: column; gap: 5px; flex: 1; }
+  .field label { font-size: 11px; font-weight: bold; color: #64748b; text-transform: uppercase; }
+  input { padding: 10px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 14px; width: 100%; }
+  
+  .btn-calc { padding: 12px 20px; background: var(--accent); color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; }
+
+  .main-card { background: var(--primary); color: white; padding: 30px; border-radius: 20px; text-align: center; max-width: 1000px; margin: 0 auto 20px; box-shadow: 0 10px 20px rgba(0,0,0,0.1); }
+  
+  /* Obiettivo Bar */
+  .goal-box { margin-top: 20px; background: rgba(255,255,255,0.1); padding: 15px; border-radius: 12px; }
+  .progress-bg { height: 10px; background: rgba(255,255,255,0.2); border-radius: 5px; margin: 10px 0; overflow: hidden; }
+  .progress-fill { height: 100%; background: var(--gold); width: 0%; transition: 1s; }
+  
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; max-width: 1000px; margin: 0 auto; }
+  .op-card { background: white; padding: 25px; border-radius: 20px; border: 1px solid #eee; }
+  .stat-row { display: flex; justify-content: space-between; border-bottom: 1px solid #f8fafc; padding: 8px 0; }
+</style>
+</head>
+<body>
+
+<div class="header">
+    <h1>Analytics & Obiettivi</h1>
+    <a href="../Index.html?auth=1" class="btn-back">TORNA HOME</a>
+</div>
+
+<div class="filter-bar">
+    <div class="field"><label>Da Data</label><input type="date" id="dStart"></div>
+    <div class="field"><label>A Data</label><input type="date" id="dEnd"></div>
+    <div class="field"><label>Obiettivo Economico (€)</label><input type="number" id="goalInput" placeholder="Es: 5000"></div>
+    <button class="btn-calc" onclick="calcData()">CALCOLA</button>
+</div>
+
+<div id="uiResults">
+    <div style="text-align:center; padding:50px; color:#94a3b8">Seleziona date e clicca Calcola</div>
+</div>
+
+<script>
+    let rawData = {};
+    const today = new Date();
+    document.getElementById('dStart').valueAsDate = new Date(today.getFullYear(), today.getMonth(), 1);
+    document.getElementById('dEnd').valueAsDate = today;
+
+    dbRef.on('value', s => { 
+        rawData = safeData(s.val()).app;
+        calcData(); // Auto calcolo all'avvio
+    });
+
+    function calcData() {
+        const start = document.getElementById('dStart').value;
+        const end = document.getElementById('dEnd').value;
+        const goal = parseFloat(document.getElementById('goalInput').value) || 0;
+        
+        let stats = {}, totE = 0, totM = 0;
+
+        Object.keys(rawData).forEach(date => {
+            if(date >= start && date <= end) {
+                rawData[date].forEach(a => {
+                    const op = a.op || "Senza Nome";
+                    if(!stats[op]) stats[op] = { count: 0, euro: 0 };
+                    
+                    stats[op].count++;
+                    stats[op].euro += (a.price || 0);
+                    
+                    totE += (a.price || 0);
+                    totM++;
+                });
+            }
+        });
+
+        // Calcolo Obiettivo
+        let goalHtml = "";
+        if(goal > 0) {
+            const perc = Math.min((totE / goal) * 100, 100);
+            const miss = goal - totE;
+            goalHtml = `
+                <div class="goal-box">
+                    <div style="display:flex; justify-content:space-between; font-size:12px">
+                        <span>OBIETTIVO: ${goal}€</span>
+                        <span>${miss > 0 ? "MANCANO: " + miss + "€" : "COMPLETATO!"}</span>
+                    </div>
+                    <div class="progress-bg"><div class="progress-fill" style="width:${perc}%"></div></div>
+                </div>
+            `;
+        }
+
+        let h = `
+            <div class="main-card">
+                <div style="font-size:12px; opacity:0.8">INCASSO PERIODO</div>
+                <div style="font-size:40px; font-weight:900; color:var(--gold)">${totE} €</div>
+                <div>${totM} Massaggi eseguiti</div>
+                ${goalHtml}
+            </div>
+            <div class="grid">
+        `;
+
+        Object.keys(stats).sort((a,b) => stats[b].euro - stats[a].euro).forEach(op => {
+            const s = stats[op];
+            h += `
+                <div class="op-card">
+                    <h3 style="margin:0 0 15px 0; color:var(--primary)">${op}</h3>
+                    <div class="stat-row"><span>Massaggi</span><b>${s.count}</b></div>
+                    <div class="stat-row" style="margin-top:10px; border:none; background:#f0fdf4; padding:10px; border-radius:8px">
+                        <span>Incasso</span><b style="color:#16a34a">${s.euro} €</b>
+                    </div>
+                </div>
+            `;
+        });
+        h += `</div>`;
+        document.getElementById("uiResults").innerHTML = h;
+    }
+</script>
+</body>
+</html>

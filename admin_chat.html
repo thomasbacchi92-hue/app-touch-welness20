@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Admin Chat Network - TOUCH WELNESS</title>
+<link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-storage-compat.js"></script>
+<style>
+  :root { --primary: #0f172a; --accent: #38bdf8; --gold: #fbbf24; --green: #25D366; --purple: #a855f7; --bg: #f1f5f9; }
+  * { box-sizing: border-box; }
+  body { font-family: -apple-system, sans-serif; background: var(--bg); margin: 0; display: flex; height: 100vh; overflow: hidden; color: #334155; }
+  
+  .sidebar { width: 260px; background: var(--primary); color: white; display: flex; flex-direction: column; padding: 20px; box-shadow: 4px 0 15px rgba(0,0,0,0.1); z-index: 100; flex-shrink:0; overflow-y:auto; }
+  .logo { font-size: 18px; font-weight: 900; color: var(--gold); margin-bottom: 30px; text-align: center; letter-spacing: 1px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 20px; }
+  .nav-item { padding: 15px; margin-bottom: 8px; border-radius: 10px; cursor: pointer; display: flex; align-items: center; gap: 12px; font-weight: 600; color: #94a3b8; transition: 0.2s; }
+  .nav-item:hover { background: rgba(255,255,255,0.1); color: white; }
+  .nav-item.active { background: var(--accent); color: var(--primary); }
+
+  .chat-wrapper { display: flex; flex: 1; background: white; margin: 20px; border-radius: 15px; overflow: hidden; box-shadow: 0 5px 20px rgba(0,0,0,0.05); border: 1px solid #e2e8f0; }
+  
+  .chat-sidebar { width: 320px; background: #f8fafc; border-right: 1px solid #e2e8f0; display: flex; flex-direction: column; flex-shrink:0; }
+  .struct-selector { padding: 20px; background: white; border-bottom: 1px solid #e2e8f0; }
+  .struct-selector select { width: 100%; padding: 12px; border: 1px solid #cbd5e1; border-radius: 8px; font-weight: bold; outline: none; }
+  
+  .contact-list { overflow-y: auto; flex: 1; }
+  .contact-item { padding: 15px; border-bottom: 1px solid #f1f5f9; cursor: pointer; display: flex; align-items: center; gap: 15px; transition: 0.2s; }
+  .contact-item:hover, .contact-item.active { background: white; border-left: 4px solid var(--accent); }
+  .avatar { width: 40px; height: 40px; border-radius: 50%; background: var(--primary); color: white; display: flex; align-items: center; justify-content: center; font-weight: bold; }
+  
+  .chat-area { flex: 1; display: flex; flex-direction: column; background: #efeae2; position: relative; }
+  .chat-header { background: white; padding: 15px; display: flex; align-items: center; gap: 15px; border-bottom: 1px solid #e2e8f0; font-weight: bold; color: var(--primary); }
+  
+  .messages-pane { flex: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; }
+  .msg-bubble { max-width: 65%; padding: 10px 15px; border-radius: 10px; font-size: 14px; position: relative; box-shadow: 0 1px 1px rgba(0,0,0,0.1); }
+  .msg-received { background: white; align-self: flex-start; border-top-left-radius: 0; }
+  .msg-sent { background: #dcfce7; align-self: flex-end; border-top-right-radius: 0; border-left: 3px solid var(--green);} 
+  .msg-sender { font-size: 11px; font-weight: bold; color: #0284c7; margin-bottom: 3px; display: block; text-transform:capitalize; }
+  .msg-time { font-size: 10px; color: #667781; text-align: right; margin-top: 4px; display: block; }
+  
+  .input-area { background: white; padding: 15px; display: flex; gap: 10px; align-items: center; border-top: 1px solid #e2e8f0; }
+  .chat-input { flex: 1; padding: 15px; border: 1px solid #cbd5e1; border-radius: 20px; outline: none; font-size: 15px; }
+  .send-btn { background: var(--primary); color: white; border: none; width: 45px; height: 45px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: 0.2s;}
+  .mic-btn { background: #f1f5f9; color: var(--primary); border: 1px solid #cbd5e1; }
+
+</style>
+</head>
+<body>
+
+<div class="sidebar">
+    <div class="logo">ADMIN MASTER</div>
+    <div class="nav-item" onclick="window.location.href='admin.html'"><i class="material-icons-round">arrow_back</i> Torna ad Admin</div>
+    <div class="nav-item active"><i class="material-icons-round">forum</i> Ispettore Chat</div>
+</div>
+
+<div class="chat-wrapper">
+    <div class="chat-sidebar">
+        <div class="struct-selector">
+            <select id="selStruct" onchange="loadStructChats()">
+                <option value="">-- Seleziona Struttura --</option>
+            </select>
+        </div>
+        <div class="contact-list" id="contactsList">
+            <div style="padding:20px; text-align:center; color:#64748b">Scegli una struttura per ispezionare le chat.</div>
+        </div>
+    </div>
+
+    <div class="chat-area">
+        <div class="chat-header">
+            <div class="avatar" id="headerAvatar" style="width:40px; height:40px; font-size:18px">?</div>
+            <span id="chatTitle">Seleziona una Chat da ispezionare</span>
+        </div>
+        
+        <div class="messages-pane" id="msgBox">
+            <div style="text-align:center; padding:30px; color:#64748b; font-weight:bold">Pannello di Controllo Messaggistica Globale.</div>
+        </div>
+        
+        <div class="input-area" id="inputArea" style="display:none">
+            <button class="send-btn mic-btn" id="micBtn" onclick="toggleRecording()"><i class="material-icons-round">mic</i></button>
+            <input type="text" id="chatInput" class="chat-input" placeholder="Scrivi un messaggio come Admin Master..." onkeypress="if(event.key==='Enter'){ event.preventDefault(); sendMessage(); }">
+            <button class="send-btn" onclick="sendMessage()"><i class="material-icons-round">send</i></button>
+        </div>
+    </div>
+</div>
+
+<script>
+    // --- MOTORE OFFLINE (STRESS TEST) ---
+    if (localStorage.getItem('TW_IS_OFFLINE') === 'true') {
+        window.mockDB = JSON.parse(localStorage.getItem('TW_MOCK_DB') || '{}');
+        window.saveMockDB = () => localStorage.setItem('TW_MOCK_DB', JSON.stringify(window.mockDB));
+        const getPath = (obj, p) => p.split('/').filter(Boolean).reduce((acc, part) => acc && acc[part], obj);
+        const setPath = (obj, p, val) => { const parts = p.split('/').filter(Boolean); let curr = obj; for(let i=0; i<parts.length-1; i++) { if(!curr[parts[i]]) curr[parts[i]] = {}; curr = curr[parts[i]]; } curr[parts[parts.length-1]] = val; };
+        const removePath = (obj, p) => { const parts = p.split('/').filter(Boolean); let curr = obj; for(let i=0; i<parts.length-1; i++) { if(!curr[parts[i]]) return; curr = curr[parts[i]]; } delete curr[parts[parts.length-1]]; };
+        window.mockListeners = {};
+        window.triggerMock = (p) => { Object.keys(window.mockListeners).forEach(listP => { if(p.startsWith(listP) || listP.startsWith(p)) { window.mockListeners[listP].forEach(cb => cb({ val: () => getPath(window.mockDB, listP) })); } }); };
+        
+        window.firebase = {
+            apps: [1], initializeApp: () => {},
+            database: () => {
+                const mockDbObj = {
+                    ref: function(path) {
+                        return {
+                            on: (ev, cb) => { if(!window.mockListeners[path]) window.mockListeners[path] = []; window.mockListeners[path].push(cb); cb({ val: () => getPath(window.mockDB, path) }); },
+                            once: (ev) => Promise.resolve({ val: () => getPath(window.mockDB, path) }),
+                            set: (val) => { setPath(window.mockDB, path, val); window.saveMockDB(); window.triggerMock(path); return Promise.resolve(); },
+                            update: (val) => { let curr = getPath(window.mockDB, path) || {}; Object.assign(curr, val); setPath(window.mockDB, path, curr); window.saveMockDB(); window.triggerMock(path); return Promise.resolve(); },
+                            push: (val) => { const id = "MOCK_" + Date.now(); setPath(window.mockDB, path + '/' + id, val); window.saveMockDB(); window.triggerMock(path); return Promise.resolve({ key: id }); },
+                            remove: () => { removePath(window.mockDB, path); window.saveMockDB(); window.triggerMock(path); return Promise.resolve(); },
+                            child: function(cPath) { return mockDbObj.ref(path + '/' + cPath); } 
+                        }
+                    }
+                };
+                return mockDbObj;
+            }
+        };
+    }
+    // ------------------------------------
+
+    const fbConfigChat = {
+        apiKey: "AIzaSyCrDuK7SWHdbzrJR-pNpxmRwGnZgV2Dd2Y",
+        authDomain: "touch-welness-massage.firebaseapp.com",
+        databaseURL: "https://touch-welness-massage-default-rtdb.europe-west1.firebasedatabase.app",
+        projectId: "touch-welness-massage",
+        storageBucket: "touch-welness-massage.firebasestorage.app"
+    };
+    if (!firebase.apps.length) firebase.initializeApp(fbConfigChat);
+    const dbRef = firebase.database().ref('MASTER_ADMIN_DB');
+
+    let currentStruct = null;
+    let currentChatType = null;
+    let currentChatId = null;
+    let chatListener = null;
+    const myUser = "Admin Master";
+
+    dbRef.child('structures').once('value', snap => {
+        const sel = document.getElementById('selStruct');
+        const structs = Object.values(snap.val() || {}).filter(s => !s.archived);
+        structs.forEach(s => { sel.innerHTML += `<option value="${s.id}">${s.name}</option>`; });
+    });
+
+    function loadStructChats() {
+        currentStruct = document.getElementById('selStruct').value;
+        const list = document.getElementById('contactsList');
+        if(!currentStruct) { list.innerHTML = "<div style='padding:20px; text-align:center; color:#64748b'>Scegli una struttura.</div>"; return; }
+
+        list.innerHTML = "<div style='padding:20px; text-align:center; color:#64748b'>Analisi database...</div>";
+        document.getElementById('inputArea').style.display = 'none';
+        document.getElementById('msgBox').innerHTML = "";
+
+        // Prima recupero tutti i collaboratori di questa struttura
+        dbRef.child('users').once('value').then(uSnap => {
+            const allUsers = Object.values(uSnap.val() || {});
+            const staff = allUsers.filter(u => u.structureId === currentStruct);
+
+            // Poi recupero i messaggi
+            dbRef.child('structures_data').child(currentStruct).child('chats').once('value', snap => {
+                const chats = snap.val() || {};
+                
+                let html = `
+                    <div class="contact-item" onclick="openChat('public', 'public', 'Gruppo Struttura Pubblico')">
+                        <div class="avatar" style="background:var(--green)"><i class="material-icons-round">groups</i></div>
+                        <div style="font-weight:bold; color:var(--primary)">Gruppo Pubblico</div>
+                    </div>
+                    <div style="padding:15px; font-size:11px; font-weight:bold; color:#94a3b8; text-transform:uppercase; border-bottom:1px solid #f1f5f9;">Reception ↔ Operatori</div>
+                `;
+                
+                // Genero sempre il link alla chat tra Reception e ciascun operatore, anche se vuota
+                staff.forEach(u => {
+                    const pairId = ['Reception / Direzione', u.nick].sort().join('_');
+                    html += `
+                    <div class="contact-item" onclick="openChat('private', '${pairId}', 'Reception ↔ ${u.nick}')">
+                        <div class="avatar" style="background:var(--purple)"><i class="material-icons-round">room_service</i></div>
+                        <div style="font-weight:bold; color:var(--primary); text-transform:capitalize; font-size:13px">${u.nick.replace(/\./g, ' ')}</div>
+                    </div>`;
+                });
+
+                // Cerco se ci sono altre chat private (es. Operatore ↔ Operatore)
+                let otherChatsHtml = '';
+                if(chats.private) {
+                    for(let pair in chats.private) {
+                        if(!pair.includes('Reception / Direzione')) {
+                            otherChatsHtml += `
+                            <div class="contact-item" onclick="openChat('private', '${pair}', '${pair.replace('_', ' ↔ ')}')">
+                                <div class="avatar" style="background:#64748b"><i class="material-icons-round">lock</i></div>
+                                <div style="font-weight:bold; color:var(--primary); text-transform:capitalize; font-size:13px">${pair.replace('_', ' ↔ ').replace(/\./g, ' ')}</div>
+                            </div>`;
+                        }
+                    }
+                }
+
+                if (otherChatsHtml !== '') {
+                    html += `<div style="padding:15px; font-size:11px; font-weight:bold; color:#94a3b8; text-transform:uppercase; border-bottom:1px solid #f1f5f9;">Chat Tra Operatori</div>` + otherChatsHtml;
+                }
+
+                list.innerHTML = html;
+            });
+        });
+    }
+
+    function openChat(type, id, title) {
+        document.getElementById('inputArea').style.display = 'flex';
+        document.getElementById('chatTitle').innerText = title.toUpperCase();
+        
+        if (title.includes('RECEPTION')) {
+            document.getElementById('headerAvatar').innerHTML = '<i class="material-icons-round">room_service</i>';
+            document.getElementById('headerAvatar').style.background = 'var(--purple)';
+        } else if (type === 'public') {
+            document.getElementById('headerAvatar').innerHTML = '<i class="material-icons-round">groups</i>';
+            document.getElementById('headerAvatar').style.background = 'var(--green)';
+        } else {
+            document.getElementById('headerAvatar').innerHTML = '<i class="material-icons-round">lock</i>';
+            document.getElementById('headerAvatar').style.background = '#64748b';
+        }
+        
+        if(chatListener) chatListener.off();
+        currentChatType = type; currentChatId = id;
+        
+        const path = type === 'public' ? 'public' : `private/${id}`;
+        chatListener = dbRef.child('structures_data').child(currentStruct).child('chats').child(path);
+        
+        chatListener.on('value', snap => {
+            renderMessages(Object.values(snap.val() || {}));
+        });
+    }
+
+    function renderMessages(msgs) {
+        const box = document.getElementById('msgBox');
+        if(msgs.length === 0) { box.innerHTML = "<div style='text-align:center; color:#94a3b8; padding:20px'>Nessun messaggio in questa chat.</div>"; return; }
+        
+        let html = '';
+        msgs.forEach(m => {
+            const isMe = m.sender === myUser;
+            const alignClass = isMe ? 'msg-sent' : 'msg-received';
+            
+            const audioHtml = m.audioUrl ? `<audio controls src="${m.audioUrl}" style="height:35px; width:100%; max-width:220px; outline:none; margin-top:5px;"></audio>` : '';
+            const textHtml = m.text ? `<div>${m.text}</div>` : '';
+
+            html += `
+            <div class="msg-bubble ${alignClass}">
+                <span class="msg-sender" style="${isMe ? 'color:var(--green)' : ''}">${m.sender}</span>
+                ${textHtml}
+                ${audioHtml}
+                <span class="msg-time">${m.date.split(' ')[1]}</span>
+            </div>`;
+        });
+        box.innerHTML = html;
+        box.scrollTop = box.scrollHeight;
+    }
+
+    function sendMessage() {
+        const input = document.getElementById('chatInput');
+        const text = input.value.trim();
+        if(!text || !currentChatType || !currentStruct) return;
+        
+        const path = currentChatType === 'public' ? 'public' : `private/${currentChatId}`;
+        const msg = { sender: myUser, text: text, timestamp: Date.now(), date: new Date().toLocaleString('it-IT') };
+        
+        dbRef.child('structures_data').child(currentStruct).child('chats').child(path).push(msg);
+        input.value = "";
+    }
+
+    let mediaRecorder;
+    let audioChunks = [];
+    let isRecording = false;
+
+    async function toggleRecording() {
+        if(!currentChatType || !currentStruct) return;
+
+        if(!isRecording) {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                mediaRecorder = new MediaRecorder(stream);
+                audioChunks = [];
+                mediaRecorder.ondataavailable = e => { if (e.data.size > 0) audioChunks.push(e.data); };
+                
+                mediaRecorder.onstop = async () => {
+                    const audioBlob = new Blob(audioChunks);
+                    const fileName = `audio_${Date.now()}.webm`;
+                    
+                    // Nota: Se sei in test offline, Firebase Storage darà errore perché non può caricare file senza internet.
+                    if (localStorage.getItem('TW_IS_OFFLINE') === 'true') {
+                        alert("I file audio non possono essere salvati in modalità Test Offline.");
+                        resetMicUI();
+                        return;
+                    }
+
+                    const storageRef = firebase.storage().ref(`chats/${currentStruct}/${currentChatId}/${fileName}`);
+                    
+                    document.getElementById('chatInput').placeholder = "Invio vocale in corso...";
+                    
+                    const uploadTask = storageRef.put(audioBlob);
+                    uploadTask.on('state_changed', null, 
+                        error => { alert("Errore invio audio: " + error.message); resetMicUI(); }, 
+                        async () => {
+                            const downloadURL = await uploadTask.snapshot.ref.getDownloadURL();
+                            sendAudioMessage(downloadURL);
+                            resetMicUI();
+                        }
+                    );
+                };
+                
+                mediaRecorder.start();
+                isRecording = true;
+                
+                document.getElementById('micBtn').innerHTML = '<i class="material-icons-round">stop</i>';
+                document.getElementById('micBtn').style.background = "#ef4444";
+                document.getElementById('micBtn').style.color = "white";
+                document.getElementById('chatInput').placeholder = "Registrazione in corso... (Clicca per inviare)";
+                document.getElementById('chatInput').disabled = true;
+
+            } catch (e) {
+                alert("Permesso microfono negato o non supportato dal browser.");
+                resetMicUI();
+            }
+        } else {
+            mediaRecorder.stop();
+            mediaRecorder.stream.getTracks().forEach(t => t.stop());
+            isRecording = false;
+        }
+    }
+
+    function resetMicUI() {
+        document.getElementById('micBtn').innerHTML = '<i class="material-icons-round">mic</i>';
+        document.getElementById('micBtn').style.background = "#f1f5f9";
+        document.getElementById('micBtn').style.color = "var(--primary)";
+        document.getElementById('chatInput').placeholder = "Scrivi un messaggio...";
+        document.getElementById('chatInput').disabled = false;
+        isRecording = false;
+    }
+
+    function sendAudioMessage(url) {
+        const path = currentChatType === 'public' ? 'public' : `private/${currentChatId}`;
+        const msg = { sender: myUser, text: "🎵 Messaggio Vocale da Direzione", audioUrl: url, timestamp: Date.now(), date: new Date().toLocaleString('it-IT') };
+        dbRef.child('structures_data').child(currentStruct).child('chats').child(path).push(msg);
+    }
+</script>
+</body>
+</html>

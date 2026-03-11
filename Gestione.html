@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Impostazioni - TOUCH WELNESS</title>
+<link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
+<script src="Menu.js"></script>
+<style>
+  :root { 
+      --bg-body: #0f172a; --bg-panel: #1e293b; --border-line: #334155; 
+      --text-main: #f8fafc; --text-muted: #94a3b8; 
+      --accent: #38bdf8; --gold: #fbbf24; --green: #10b981; --red: #ef4444; 
+  }
+  :root.light-theme {
+      --bg-body: #f8fafc; --bg-panel: #ffffff; --border-line: #e2e8f0;
+      --text-main: #0f172a; --text-muted: #64748b;
+  }
+
+  * { box-sizing: border-box; }
+  body { font-family: -apple-system, sans-serif; background: var(--bg-body); margin: 0; display: flex; flex-direction: column; height: 100vh; color: var(--text-main); transition: 0.3s; }
+  
+  .navbar { background: var(--bg-body); color: var(--text-main); padding: 15px 20px; display: flex; justify-content: space-between; align-items: center; z-index: 20; border-bottom: 1px solid var(--border-line); width: 100%; flex-shrink: 0; box-shadow: 0 4px 10px rgba(0,0,0,0.3); }
+  .btn-menu { background: var(--gold); color: #000; border: none; padding: 8px 15px; border-radius: 8px; font-weight: 900; cursor: pointer; display:flex; align-items:center; gap:5px; font-size: 13px; box-shadow: 0 3px 0 #b45309; }
+  .btn-menu:active { transform: translateY(3px); box-shadow: none; }
+
+  .main-content { flex: 1; padding: 20px; overflow-y: auto; position: relative; }
+  .card { background: var(--bg-panel); border-radius: 16px; padding: 25px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); margin-bottom: 25px; border: 1px solid var(--border-line); transition: 0.3s; }
+  
+  h2 { margin-top: 0; color: var(--gold); display:flex; justify-content:space-between; align-items:center; font-size: 20px; border-bottom: 2px solid var(--border-line); padding-bottom: 10px; margin-bottom: 20px; text-transform: uppercase; }
+  
+  .list-row { background: var(--bg-body); padding: 15px; border-radius: 10px; border: 1px solid var(--border-line); display: flex; justify-content: space-between; align-items: center; margin-bottom:10px; }
+  .row-info b { color: var(--text-main); display: block; font-size:15px; text-transform: uppercase; }
+  
+  .btn-action { display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 12px 20px; background: var(--accent); color: #0f172a; border: none; border-radius: 8px; font-weight: 900; cursor: pointer; transition: 0.2s; white-space: nowrap; }
+  .btn-action:hover { transform: translateY(-2px); box-shadow: 0 6px 12px rgba(0,0,0,0.3); }
+  .btn-action:active { transform: translateY(0); box-shadow: none; }
+  
+  .switch-container { display: flex; align-items: center; justify-content: space-between; background: var(--bg-body); padding: 15px; border-radius: 10px; border: 1px solid var(--border-line); margin-bottom: 10px; }
+  .switch { position: relative; display: inline-block; width: 50px; height: 28px; }
+  .switch input { opacity: 0; width: 0; height: 0; }
+  .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: var(--border-line); transition: .4s; border-radius: 34px; }
+  .slider:before { position: absolute; content: ""; height: 20px; width: 20px; left: 4px; bottom: 4px; background-color: white; transition: .4s; border-radius: 50%; }
+  input:checked + .slider { background-color: var(--green); }
+  input:checked + .slider:before { transform: translateX(22px); }
+
+  .theme-card { border: 2px solid var(--border-line); border-radius: 12px; padding: 15px; cursor: pointer; transition: 0.2s; background: var(--bg-body); text-align:center; color: var(--text-main); }
+  .theme-card.active { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.2); }
+
+  .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 2000; align-items: center; justify-content: center; backdrop-filter: blur(4px); padding: 15px; }
+  .modal-box { background: var(--bg-panel); padding: 25px; border-radius: 16px; width: 100%; max-width: 400px; border: 1px solid var(--border-line); }
+  
+  .form-group { margin-bottom: 15px; }
+  .form-group label { display: block; font-size: 11px; font-weight: bold; color: var(--text-muted); text-transform: uppercase; margin-bottom: 5px; }
+  .form-input { width: 100%; padding: 12px; border: 1px solid var(--border-line); border-radius: 8px; font-size: 14px; background: var(--bg-body); color: var(--text-main); color-scheme: dark; outline:none; }
+  .form-input:focus { border-color: var(--accent); }
+
+  #toastBlue { visibility: hidden; min-width: 250px; background: #2563eb; color: #fff; text-align: center; border-radius: 8px; padding: 12px; position: fixed; right: 20px; bottom: 20px; z-index: 9999; font-size: 13px; font-weight: bold; opacity: 0; transition: 0.3s; }
+  #toastBlue.show { visibility: visible; opacity: 1; bottom: 30px; }
+</style>
+<script>
+    if(localStorage.getItem('tw_theme') === 'light') { document.documentElement.classList.add('light-theme'); }
+</script>
+</head>
+<body>
+
+<div id="toastBlue">Notifica</div>
+
+<div class="navbar">
+  <div style="font-weight:900; letter-spacing:1px">IMPOSTAZIONI</div>
+  <button class="btn-menu" onclick="window.toggleMenu(event)">MENU <i class="material-icons-round">menu</i></button>
+</div>
+
+<div class="main-content">
+    
+    <div class="card">
+        <h2>Messaggistica Automatica</h2>
+        <p style="font-size:13px; color:var(--text-muted); margin-bottom:20px;">Abilita o disabilita il pulsante per inviare i promemoria su WhatsApp ai clienti.</p>
+        <div class="switch-container">
+            <div>
+                <b style="display:block; font-size:14px; color:var(--text-main);">Pulsante WhatsApp</b>
+                <span style="font-size:12px; color:var(--text-muted);">Stato attuale: <b id="waStatusText">ATTIVO</b></span>
+            </div>
+            <label class="switch">
+                <input type="checkbox" id="waToggle" onchange="toggleWaFeature()">
+                <span class="slider"></span>
+            </label>
+        </div>
+    </div>
+
+    <div class="card">
+        <h2>Gestione Staff Operativo</h2>
+        <p style="font-size:13px; color:var(--text-muted); margin-bottom:20px;">Gli operatori vengono creati dalla Direzione. Da qui puoi solo modificarne il Cognome da mostrare sulle ricevute e in agenda.</p>
+        <div id="staffListContainer">
+            <div style="text-align:center; padding:20px; color:var(--text-muted)">Caricamento staff...</div>
+        </div>
+    </div>
+
+    <div class="card">
+        <h2>Opzioni Tema Grafico</h2>
+        <p style="font-size:13px; color:var(--text-muted); margin-bottom:20px;">Scegli la modalità di visualizzazione del gestionale per questo dispositivo.</p>
+        
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+            <div class="theme-card" id="theme-dark" onclick="setClientTheme('dark')">
+                <i class="material-icons-round" style="font-size:32px; margin-bottom:10px;">dark_mode</i>
+                <div style="font-weight:bold;">Notte (Premium)</div>
+            </div>
+            
+            <div class="theme-card" id="theme-light" onclick="setClientTheme('light')">
+                <i class="material-icons-round" style="font-size:32px; margin-bottom:10px; color:#f59e0b">light_mode</i>
+                <div style="font-weight:bold;">Giorno (Chiaro)</div>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<div id="staffEditModal" class="modal-overlay" onclick="if(event.target===this) this.style.display='none'">
+    <div class="modal-box">
+        <h3 style="margin-top:0; border-bottom:1px solid var(--border-line); padding-bottom:10px; color:var(--accent);">Modifica Operatore</h3>
+        <input type="hidden" id="eStId">
+        <div class="form-group"><label>Nome (Sola Lettura)</label><input type="text" id="eStNome" class="form-input" readonly style="opacity:0.6"></div>
+        <div class="form-group"><label>Cognome</label><input type="text" id="eStCognome" class="form-input" placeholder="Inserisci il cognome"></div>
+        
+        <div style="display:flex; gap:10px; margin-top:20px">
+            <button class="btn-action" style="flex:1; background:transparent; border:1px solid var(--border-line); color:var(--text-main)" onclick="document.getElementById('staffEditModal').style.display='none'">ANNULLA</button>
+            <button class="btn-action" style="flex:1" onclick="saveStaffEdit()">SALVA</button>
+        </div>
+    </div>
+</div>
+
+<script>
+  const fbConfig = {
+      apiKey: "AIzaSyCrDuK7SWHdbzrJR-pNpxmRwGnZgV2Dd2Y",
+      authDomain: "touch-welness-massage.firebaseapp.com",
+      databaseURL: "https://touch-welness-massage-default-rtdb.europe-west1.firebasedatabase.app",
+      projectId: "touch-welness-massage",
+      storageBucket: "touch-welness-massage.firebasestorage.app"
+  };
+
+  if (!firebase.apps.length) firebase.initializeApp(fbConfig);
+
+  const twStructId = localStorage.getItem("tw_structure_id");
+  if(!twStructId) window.location.href = "login.html";
+
+  const adminStructRef = firebase.database().ref('MASTER_ADMIN_DB/structures_data/' + twStructId);
+  let db = { settings: {}, staff: [] };
+
+  function showToast(msg) { const t = document.getElementById("toastBlue"); t.innerText = msg; t.classList.add("show"); setTimeout(() => t.classList.remove("show"), 3000); }
+
+  adminStructRef.on('value', snap => {
+      const val = snap.val() || {};
+      db.settings = val.settings || {};
+      db.staff = Array.isArray(val.staff) ? val.staff : Object.values(val.staff || {});
+      renderUI();
+  });
+
+  function renderUI() {
+      const staffContainer = document.getElementById('staffListContainer');
+      if(db.staff.length === 0) { staffContainer.innerHTML = "<div style='text-align:center; padding:10px; color:var(--text-muted)'>Nessun operatore assegnato.</div>"; }
+      else {
+        staffContainer.innerHTML = db.staff.map(s => `
+        <div class="list-row">
+            <div class="row-info"><b>${s.nome}</b><span>${s.cognome || 'Cognome non inserito'}</span></div>
+            <button class="btn-action" style="padding:8px 12px;" onclick="openStaffEdit('${s.id}', '${s.nome}', '${s.cognome||''}')">
+                <i class="material-icons-round" style="font-size:16px">edit</i>
+            </button>
+        </div>`).join('');
+      }
+        
+      const waEnabled = db.settings.waEnabled !== false; 
+      const wt = document.getElementById('waToggle'); if(wt) wt.checked = waEnabled; 
+      const ws = document.getElementById('waStatusText'); 
+      if(ws) { ws.innerText = waEnabled ? "ATTIVO" : "SPENTO"; ws.style.color = waEnabled ? "var(--green)" : "var(--red)"; }
+  }
+
+  function openStaffEdit(id, nome, cognome) { document.getElementById('eStId').value = id; document.getElementById('eStNome').value = nome; document.getElementById('eStCognome').value = cognome; document.getElementById('staffEditModal').style.display = 'flex'; }
+  function saveStaffEdit() { const id = document.getElementById('eStId').value; const cognome = document.getElementById('eStCognome').value; const idx = db.staff.findIndex(s => s.id === id); if(idx > -1) { db.staff[idx].cognome = cognome; adminStructRef.child('staff').set(db.staff).then(() => { document.getElementById('staffEditModal').style.display = 'none'; showToast("Aggiornato"); }); } }
+  
+  function toggleWaFeature() { const isChecked = document.getElementById('waToggle').checked; adminStructRef.child('settings').update({ waEnabled: isChecked }).then(() => { showToast(isChecked ? "WhatsApp Attivato" : "WhatsApp Disattivato"); }); }
+
+  function updateClientThemeUI() {
+      const isLight = localStorage.getItem('tw_theme') === 'light';
+      const cDark = document.getElementById('theme-dark');
+      const cLight = document.getElementById('theme-light');
+      if(cDark && cLight) {
+          cDark.style.borderColor = isLight ? "var(--border-line)" : "var(--accent)";
+          cDark.style.boxShadow = isLight ? "none" : "0 0 0 3px rgba(56, 189, 248, 0.3)";
+          cLight.style.borderColor = isLight ? "var(--accent)" : "var(--border-line)";
+          cLight.style.boxShadow = isLight ? "0 0 0 3px rgba(56, 189, 248, 0.3)" : "none";
+      }
+  }
+
+  function setClientTheme(theme) {
+      localStorage.setItem('tw_theme', theme);
+      if(theme === 'light') document.documentElement.classList.add('light-theme');
+      else document.documentElement.classList.remove('light-theme');
+      updateClientThemeUI();
+  }
+
+  document.addEventListener("DOMContentLoaded", updateClientThemeUI);
+
+</script>
+</body>
+</html>

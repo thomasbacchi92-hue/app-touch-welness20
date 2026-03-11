@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Agenda Ricevimento - TOUCH WELNESS</title>
+
+<link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
+<script src="Core.js"></script>
+<script src="Menu.js"></script>
+<style>
+  :root { 
+      --bg-body: #0f172a; --bg-panel: #1e293b; --border-line: #334155; 
+      --text-main: #f8fafc; --text-muted: #94a3b8; 
+      --accent: #38bdf8; --gold: #fbbf24; --green: #10b981; --red: #ef4444; --purple: #a855f7;
+  }
+
+  * { box-sizing: border-box; }
+  body { font-family: -apple-system, sans-serif; background: var(--bg-body); margin: 0; display: flex; flex-direction: column; height: 100vh; overflow: hidden; color: var(--text-main); }
+  
+  .navbar { background: var(--bg-body); color: var(--text-main); padding: 12px 20px; display: flex; align-items: center; z-index: 20; border-bottom: 1px solid var(--border-line); flex-shrink: 0; }
+  .btn-menu { background: var(--gold); color: #000; border: none; padding: 8px 15px; border-radius: 8px; font-weight: 900; cursor: pointer; display:flex; align-items:center; gap:5px; font-size: 13px; box-shadow: 0 3px 0 #b45309; transition:0.2s; }
+  
+  .date-ctrl { display: flex; align-items: center; gap: 8px; background: var(--bg-panel); padding: 6px; border-radius: 10px; border: 1px solid var(--border-line); }
+  .btn-arrow { background: var(--purple); color: white; border: none; cursor: pointer; padding: 5px 8px; display: flex; align-items: center; justify-content: center; border-radius: 6px; }
+  input[type="date"] { border: none; padding: 6px 10px; border-radius: 6px; font-weight: 900; font-size: 16px; outline: none; background: transparent; color: var(--text-main); color-scheme: dark; }
+
+  .layout { display: flex; flex: 1; overflow: hidden; width: 100%; position: relative; }
+  
+  /* SIDEBAR RICHIESTA */
+  .sidebar { width: 0; background: var(--bg-panel); border-right: 1px solid var(--border-line); transition: width 0.3s ease; overflow-y: auto; display: flex; flex-direction: column; flex-shrink: 0; }
+  .sidebar.active { width: 380px; padding: 25px; border-right: 2px solid var(--purple); }
+  
+  /* GRID CENTRALE */
+  .grid-container { flex: 1; display: flex; gap: 12px; padding: 15px; overflow-x: auto; overflow-y: auto; background: var(--bg-body); position: relative; }
+  .colonna { flex: 1; min-width: 280px; background: var(--bg-panel); border-radius: 16px; border: 1px solid var(--border-line); height: fit-content; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.3); }
+  .col-head { background: rgba(0,0,0,0.2); color: var(--text-main); padding: 12px; text-align: center; font-weight: 800; font-size: 13px; border-bottom: 2px solid var(--purple); position: sticky; top: 0; z-index: 2; text-transform: uppercase; }
+  
+  .time-row { display: flex; height: 60px; border-bottom: 1px solid var(--border-line); }
+  .time-lbl { width: 55px; background: rgba(0,0,0,0.1); display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: bold; color: var(--text-muted); border-right: 1px solid var(--border-line); flex-shrink: 0; }
+  
+  /* DRAG & DROP E SLOTS */
+  .slot { flex: 1; cursor: pointer; position: relative; transition: 0.2s; }
+  .slot:hover { background: rgba(168, 85, 247, 0.05); }
+  .slot.drag-over { background: rgba(56, 189, 248, 0.2) !important; border: 2px dashed var(--accent) !important; z-index: 10; }
+  .app-base.dragging { opacity: 0.5; transform: scale(0.95); }
+
+  /* BLOCCHI AGENDA RICEVIMENTO */
+  .app-base { width: calc(100% - 4px); position: absolute; left: 2px; padding: 6px 10px; font-size: 11px; overflow:hidden; border-radius: 6px; box-shadow: 0 4px 10px rgba(0,0,0,0.3); display: flex; justify-content: space-between; align-items: flex-start; z-index: 5; pointer-events: none; transition: transform 0.1s; }
+  .app-base:active { cursor: grabbing; }
+  
+  /* Appuntamento Reale SPA -> VIOLA CLICCABILE PER NOTE (NON trascinabile) */
+  .app-standard { background: #f3e8ff; color: #581c87; border-left: 5px solid var(--purple); opacity: 0.9; cursor: pointer; pointer-events: auto; } 
+  .app-standard:hover { transform: scale(1.02); z-index: 10; }
+  
+  /* Richiesta in Sospeso -> BLU (TRASCINABILE) */
+  .app-request { background: #e0f2fe; color: #0369a1; border-left: 5px solid var(--accent); pointer-events: auto; cursor: grab; animation: pulseReq 2s infinite; } 
+  @keyframes pulseReq { 0% { box-shadow: 0 0 0 0 rgba(56, 189, 248, 0.4); } 70% { box-shadow: 0 0 0 6px rgba(56, 189, 248, 0); } 100% { box-shadow: 0 0 0 0 rgba(56, 189, 248, 0); } }
+
+  .app-info-col { flex: 1; display: flex; flex-direction: column; overflow: hidden; pointer-events:none; }
+  .app-base b { font-size: 13px; margin-bottom: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  
+  .app-busy { background: rgba(0,0,0,0.1); width: 100%; height: 100%; position: absolute; top: 0; left: 0; border-left: 3px solid var(--border-line); z-index: 1; pointer-events:auto; }
+  .app-busy.req-busy { background: rgba(56, 189, 248, 0.1); border-left-color: var(--accent); }
+
+  /* PANNELLO LOG LATERALE */
+  .log-panel { width: 350px; background: var(--bg-panel); border-left: 1px solid var(--border-line); display: flex; flex-direction: column; flex-shrink: 0; }
+  .log-header { padding: 15px; font-weight: bold; color: var(--purple); border-bottom: 1px solid var(--border-line); display: flex; justify-content: space-between; align-items: center; text-transform: uppercase; font-size: 13px; }
+  .log-container { flex: 1; overflow-y: auto; padding: 15px; display: flex; flex-direction: column; }
+  .btn-clear-log { background: transparent; color: var(--text-muted); border: 1px solid var(--border-line); padding: 4px 8px; border-radius: 6px; font-size: 10px; cursor: pointer; transition: 0.2s; display: flex; align-items: center; gap: 4px; }
+  .btn-clear-log:hover { color: var(--text-main); border-color: var(--text-main); }
+
+  /* FORM STYLES */
+  .form-group { margin-bottom: 12px; width: 100%; position: relative; }
+  .form-group label { display: block; font-size: 10px; font-weight: bold; color: var(--text-muted); text-transform: uppercase; margin-bottom: 4px; }
+  .form-input { width: 100%; padding: 12px; border: 1px solid var(--border-line); border-radius: 8px; font-size: 13px; outline:none; background: var(--bg-body); color: var(--text-main); color-scheme: dark; transition:0.2s; box-sizing: border-box; }
+  .form-input:focus { border-color: var(--purple); box-shadow: 0 0 0 2px rgba(168, 85, 247, 0.3); }
+  
+  .form-input:disabled { opacity: 0.5; background: rgba(0,0,0,0.3); border-color: transparent; color: var(--text-muted); cursor: not-allowed; }
+
+  .btn-save { width: 100%; padding: 14px; background: var(--purple); color: white; border: none; border-radius: 8px; font-weight: 900; cursor: pointer; transition: 0.2s; display: flex; align-items: center; justify-content: center; gap: 8px; font-size:13px; box-sizing: border-box; }
+  .btn-save:hover { transform: translateY(-2px); box-shadow: 0 4px 10px rgba(0,0,0,0.3); }
+  .btn-del { background: rgba(239, 68, 68, 0.1) !important; color: var(--red) !important; border: 1px solid rgba(239, 68, 68, 0.3) !important; margin-top: 0 !important; }
+
+  .autocomplete-box { display: none; position: absolute; top: 100%; left: 0; width: 100%; background: var(--bg-panel); border: 1px solid var(--border-line); border-radius: 8px; max-height: 150px; overflow-y: auto; z-index: 99; box-shadow: 0 10px 20px rgba(0,0,0,0.5); }
+  .auto-item { padding: 10px; font-size: 12px; border-bottom: 1px solid var(--border-line); cursor: pointer; display: flex; justify-content: space-between; color: var(--text-main); }
+
+  #toastBlue { visibility: hidden; min-width: 250px; background: var(--purple); color: #fff; text-align: center; border-radius: 8px; padding: 16px; position: fixed; z-index: 9999; right: 30px; bottom: 30px; font-size: 13px; font-weight: bold; opacity: 0; transition: 0.5s; box-shadow: 0 10px 20px rgba(0,0,0,0.5); }
+  #toastBlue.show { visibility: visible; opacity: 1; bottom: 40px; }
+
+</style>
+</head>
+<body onclick="closeSidebar(event)">
+
+<div id="toastBlue"><i class="material-icons-round" style="vertical-align:middle; margin-right:5px">info</i> <span id="toastMsg">Notifica</span></div>
+
+<script>
+    if(!localStorage.getItem("tw_token")) window.location.href="../login.html";
+</script>
+
+<div class="navbar">
+  <div style="flex:1; display:flex; align-items:center;">
+      <div style="font-weight:900; color:var(--purple); letter-spacing:1px; line-height:1.2;">
+          RICEVIMENTO<br><span style="font-size:10px; color:var(--text-muted); font-weight:bold;">AGENDA DIREZIONALE</span>
+      </div>
+  </div>
+  
+  <div style="flex:1; display:flex; justify-content:center;">
+      <div class="date-ctrl">
+        <button class="btn-arrow" onclick="sysChangeDate(-1)"><i class="material-icons-round">chevron_left</i></button>
+        <input type="date" id="mainDate" onchange="window.render()">
+        <button class="btn-arrow" onclick="sysChangeDate(1)"><i class="material-icons-round">chevron_right</i></button>
+      </div>
+  </div>
+
+  <div style="flex:1; display:flex; justify-content:flex-end;">
+      <button class="btn-menu" onclick="window.toggleMenu(event)">MENU <i class="material-icons-round">menu</i></button>
+  </div>
+</div>
+
+<div class="layout">
+    <div class="sidebar" id="sideForm" onclick="event.stopPropagation()">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px; border-bottom:1px solid var(--border-line); padding-bottom:10px;">
+            <h3 style="color:var(--purple); margin:0; text-transform:uppercase;" id="sidebarTitle">INVIA RICHIESTA ALLA SPA</h3>
+            <i class="material-icons-round" style="cursor:pointer; color:var(--text-muted);" onclick="closeSidebar(null, true)">close</i>
+        </div>
+        
+        <input type="hidden" id="rId"><input type="hidden" id="rCab">
+        
+        <div style="display:flex; gap:10px">
+            <div class="form-group" style="flex:1"><label>Data</label><input type="date" id="rDate" class="form-input" disabled></div>
+            <div class="form-group" style="flex:1"><label>Orario <span id="rOraHint" style="font-weight:normal; color:var(--purple)">(Clicca griglia)</span></label><input type="time" id="rOra" class="form-input"></div>
+        </div>
+        
+        <div style="display:flex; gap:10px">
+            <div class="form-group" style="flex:1"><label>Camera</label><input type="number" id="rCam" class="form-input" placeholder="N°"></div>
+            <div class="form-group" style="flex:1.5"><label>Telefono</label><input type="tel" id="rTel" class="form-input" placeholder="Opzionale"></div>
+        </div>
+        
+        <div class="form-group">
+            <label>Nome Ospite</label>
+            <input type="text" id="rCog" class="form-input" autocomplete="off" onkeyup="sysCheckCustomerInput()" placeholder="Nome Ospite...">
+            <div id="cogSuggestions" class="autocomplete-box"></div>
+        </div>
+
+        <div class="form-group">
+            <label>Trattamento Richiesto</label>
+            <select id="rServ" class="form-input">
+                <option value="">-- Seleziona (Caricamento in corso) --</option>
+            </select>
+        </div>
+
+        <div class="form-group"><label>Note per la SPA</label><textarea id="rNote" class="form-input" rows="4" placeholder="Es: Ospite in ritardo, richieste particolari..."></textarea></div>
+        
+        <div style="display:flex; flex-direction:column; gap:10px; margin-top:15px;">
+            <button class="btn-save" id="btnSaveReq" onclick="sysSaveRequest()"><i class="material-icons-round">send</i> SALVA E INVIA RICHIESTA</button>
+            <button class="btn-save btn-del" id="btnDelReq" style="display:none" onclick="sysDeleteRequest()"><i class="material-icons-round">delete</i> ANNULLA RICHIESTA</button>
+            
+            <button class="btn-save" id="btnSaveNote" style="display:none; background:var(--accent); color:#0f172a" onclick="sysSaveAppNote()"><i class="material-icons-round">edit_note</i> AGGIORNA LE NOTE IN AGENDA</button>
+        </div>
+    </div>
+    
+    <div class="grid-container" id="mainGrid"></div>
+
+    <div class="log-panel">
+        <div class="log-header">
+            <div style="display:flex; align-items:center; gap:8px"><i class="material-icons-round">notifications_active</i> LOG TICKET</div>
+            <button class="btn-clear-log" onclick="sysClearAllLogs()"><i class="material-icons-round" style="font-size:12px;">delete_sweep</i> Pulisci</button>
+        </div>
+        <div class="log-container" id="logContainer">
+            <div style="text-align:center; color:var(--text-muted); font-size:12px; margin-top:20px;">Caricamento ticket...</div>
+        </div>
+    </div>
+</div>
+
+</body>
+</html>

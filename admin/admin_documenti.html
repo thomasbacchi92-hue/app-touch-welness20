@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Admin Documenti - TOUCH WELNESS</title>
+<link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
+
+<style>
+  :root { 
+      --bg-body: #0f172a; --bg-panel: #1e293b; --border-line: #334155; 
+      --text-main: #f8fafc; --text-muted: #94a3b8; 
+      --accent: #38bdf8; --gold: #fbbf24; --green: #10b981; --red: #ef4444; 
+  }
+  :root.light-theme {
+      --bg-body: #f8fafc; --bg-panel: #ffffff; --border-line: #e2e8f0;
+      --text-main: #0f172a; --text-muted: #64748b;
+  }
+
+  * { box-sizing: border-box; }
+  body { font-family: -apple-system, sans-serif; background: var(--bg-body); margin: 0; display: flex; height: 100vh; overflow: hidden; color: var(--text-main); transition: 0.3s; }
+  
+  .mobile-header { display: none; background: var(--bg-body); color: var(--text-main); padding: 15px 20px; justify-content: space-between; align-items: center; z-index: 50; border-bottom: 1px solid var(--border-line); width: 100%; flex-shrink: 0; }
+  .sidebar-overlay { display: none; position: fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); z-index:90; backdrop-filter: blur(2px); }
+  
+  .sidebar { width: 260px; background: var(--bg-body); color: var(--text-main); border-right: 1px solid var(--border-line); display: flex; flex-direction: column; padding: 20px; box-shadow: 4px 0 15px rgba(0,0,0,0.5); z-index: 100; transition: left 0.3s ease; flex-shrink:0; overflow-y:auto; }
+  .logo { font-size: 18px; font-weight: 900; color: var(--gold); margin-bottom: 30px; text-align: center; letter-spacing: 1px; border-bottom: 1px solid var(--border-line); padding-bottom: 20px; }
+  .nav-item { padding: 15px; margin-bottom: 8px; border-radius: 10px; cursor: pointer; display: flex; align-items: center; gap: 12px; font-weight: 600; color: var(--text-muted); transition: 0.2s; border: 1px solid transparent; }
+  .nav-item:hover, .nav-item.active { background: rgba(56, 189, 248, 0.1); color: var(--accent); border-color: var(--accent); }
+
+  .main-content { flex: 1; padding: 30px; overflow-y: auto; position: relative; }
+  
+  .card { background: var(--bg-panel); border-radius: 16px; padding: 25px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); margin-bottom: 25px; border: 1px solid var(--border-line); transition: 0.3s; }
+  h2 { margin-top: 0; color: var(--gold); display:flex; justify-content:space-between; align-items:center; flex-wrap: wrap; gap:10px; font-size: 20px; border-bottom: 2px solid var(--border-line); padding-bottom: 10px; margin-bottom: 20px; text-transform: uppercase; }
+  
+  .tabs-header { display: flex; gap: 10px; margin-bottom: 20px; border-bottom: 2px solid var(--border-line); overflow-x: auto; padding-bottom:5px; }
+  .tab-btn { padding: 10px 15px; background: none; border: none; cursor: pointer; font-weight: bold; color: var(--text-muted); border-bottom: 3px solid transparent; white-space: nowrap; transition: 0.2s; }
+  .tab-btn:hover { color: var(--text-main); }
+  .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+  .tab-content { display: none; }
+  .tab-content.active { display: block; }
+
+  label { font-size: 11px; font-weight: bold; color: var(--text-muted); text-transform: uppercase; display: block; margin-bottom: 5px; }
+  input, select, textarea { width: 100%; padding: 12px; border: 1px solid var(--border-line); border-radius: 8px; font-size: 14px; outline: none; margin-bottom: 15px; background: var(--bg-body); color: var(--text-main); color-scheme: dark; transition: 0.2s; }
+  input:focus, select:focus, textarea:focus { border-color:var(--accent); box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.3); }
+
+  .btn-action { display: inline-flex; align-items: center; justify-content: center; gap: 8px; width: auto; padding: 12px 20px; background: var(--accent); color: #0f172a; border: none; border-radius: 8px; font-weight: 900; cursor: pointer; transition: 0.2s; white-space: nowrap; box-shadow: 0 4px 6px rgba(0,0,0,0.3); }
+  .btn-action:hover { transform: translateY(-2px); box-shadow: 0 6px 12px rgba(0,0,0,0.5); }
+  .btn-action.w-100 { width: 100%; }
+  .btn-sm { padding: 8px 15px; font-size: 12px; margin:0; }
+  .btn-green { background: var(--green); color: white; }
+  .btn-outline { background: transparent; color: var(--text-main); border: 1px solid var(--border-line); box-shadow: none; }
+  .btn-outline:hover { background: rgba(255,255,255,0.05); transform: none; }
+  
+  .btn-icon { background: none; border: none; cursor: pointer; color: var(--text-muted); transition: 0.2s; padding:5px; display:inline-flex; align-items:center; justify-content:center;}
+  .btn-icon:hover { color: var(--accent); transform: scale(1.1); }
+  .btn-del { color: var(--red); } .btn-del:hover { color: #f87171; }
+
+  .data-table { width: 100%; border-collapse: collapse; font-size: 13px; text-align: left; background: var(--bg-panel); }
+  .data-table th { color: var(--text-muted); padding: 12px; border-bottom: 2px solid var(--border-line); font-size: 11px; text-transform: uppercase; background: var(--bg-body); position: sticky; top:0; }
+  .data-table td { padding: 12px; border-bottom: 1px solid var(--border-line); color: var(--text-main); }
+
+  .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 2000; align-items: center; justify-content: center; backdrop-filter: blur(4px); }
+  .modal-box { background: var(--bg-panel); padding: 30px; border-radius: 20px; width: 90%; max-width: 600px; text-align: left; box-shadow: 0 20px 50px rgba(0,0,0,0.8); border: 1px solid var(--border-line); }
+
+  #toastBlue { visibility: hidden; min-width: 250px; background: var(--accent); color: #0f172a; text-align: center; border-radius: 10px; padding: 16px; position: fixed; right: 30px; bottom: 30px; z-index: 9999; opacity: 0; transition: 0.3s; font-weight: bold; box-shadow: 0 10px 20px rgba(0,0,0,0.5); }
+  #toastBlue.show { visibility: visible; opacity: 1; bottom: 40px; }
+
+  @media (max-width: 768px) {
+      body { flex-direction: column; }
+      .mobile-header { display: flex; }
+      .sidebar { position: fixed; left: -300px; top: 0; height: 100vh; padding-top: 20px; }
+      .sidebar.open { left: 0; }
+      .sidebar-overlay.open { display: block; }
+      .main-content { padding: 15px; overflow-x: hidden; }
+      .card { padding: 15px; }
+      .data-table { display: block; overflow-x: auto; white-space: nowrap; }
+  }
+</style>
+<script>
+    if(localStorage.getItem('tw_admin_theme') === 'light') { document.documentElement.classList.add('light-theme'); }
+</script>
+</head>
+<body>
+
+<div id="toastBlue">Notifica</div>
+
+<div class="mobile-header">
+    <div style="font-weight:900; color:var(--gold); letter-spacing:1px">TOUCH WELNESS <span style="font-size:10px; color:var(--text-muted)">ADMIN</span></div>
+    <button class="btn-icon" style="color:var(--text-main); background:none; border:none; font-size:24px;" onclick="document.getElementById('adminSidebar').classList.add('open'); document.getElementById('sidebarOverlay').classList.add('open');"><i class="material-icons-round">menu</i></button>
+</div>
+<div id="sidebarOverlay" class="sidebar-overlay" onclick="this.classList.remove('open'); document.getElementById('adminSidebar').classList.remove('open');"></div>
+
+<script src="Admin_Menu.js"></script>
+
+<div class="main-content">
+    <h2 style="color:var(--accent); margin-bottom:20px; border-bottom: 2px solid var(--border-line); padding-bottom: 10px; font-size:24px; font-weight:900;">Archivio Documenti Centralizzato</h2>
+    
+    <div class="tabs-header">
+        <button class="tab-btn active" onclick="docApp.openTab('drive', this)">Drive</button>
+        <button class="tab-btn" onclick="docApp.openTab('templates', this)">Gestione Modelli</button>
+        <button class="tab-btn" onclick="docApp.openTab('generated', this)">Documenti Struttura</button>
+    </div>
+
+    <div id="tab-drive" class="tab-content active">
+        <div class="card" style="display:flex; flex-direction:column; height: 75vh; padding: 15px;">
+            <h2 style="border:none; margin-bottom:15px; display:flex; justify-content:space-between; align-items:center;">
+                Archivio Cloud
+                <div style="display:flex; gap:10px;">
+                    <button class="btn-action btn-sm btn-outline" style="border-color:var(--text-muted); color:var(--text-main);" onclick="docApp.setupDrive()">
+                        <i class="material-icons-round">settings</i> ID CARTELLA
+                    </button>
+                    <button class="btn-action btn-sm btn-green" onclick="docApp.openNativeDriveEditor()" title="Apri Drive per Caricare o Modificare file">
+                        <i class="material-icons-round">upload_file</i> APRI EDITOR (CARICA / CREA)
+                    </button>
+                </div>
+            </h2>
+            <div id="driveFrameContainer" style="flex:1; width:100%; border:1px solid var(--border-line); border-radius:12px; overflow:hidden; background:var(--bg-body);">
+                <div style="text-align:center; padding:50px; color:var(--text-muted);">
+                    Caricamento in corso...
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="tab-templates" class="tab-content">
+        <div class="card">
+            <h2>File Vergini (Modelli) 
+                <button class="btn-action" style="margin:0; width:auto" onclick="docApp.openTemplateModal()">
+                    <i class="material-icons-round">add</i> NUOVO MODELLO
+                </button>
+            </h2>
+            <p style="font-size:13px; color:var(--text-muted)">Carica i testi base. Utilizzando i marcatori, potrai poi trasformarli per ogni singola struttura con un click.</p>
+            
+            <div style="overflow-x:auto; margin-top:20px; border:1px solid var(--border-line); border-radius:12px;">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Nome del Documento</th>
+                            <th>Data di Caricamento</th>
+                            <th>Data Ultima Modifica</th>
+                            <th style="text-align:right">Opzioni</th>
+                        </tr>
+                    </thead>
+                    <tbody id="templatesTable">
+                        <tr><td colspan='4' style='text-align:center; padding:20px;'>Sincronizzazione in corso...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div id="tab-generated" class="tab-content">
+        
+        <div class="card" style="border-color: var(--accent); box-shadow: 0 5px 25px rgba(56,189,248,0.1);">
+            <h3 style="margin-top: 0; color: var(--accent); display: flex; align-items: center; gap: 8px; border-bottom: 1px solid var(--border-line); padding-bottom: 10px; font-size: 18px; text-transform: uppercase;">
+                <i class="material-icons-round">rule</i> Configura Moduli da Firmare in Reception
+            </h3>
+            <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 15px;">Seleziona la struttura e scegli i documenti (tra quelli generati e intestati) che la Reception invierà al Tablet per la firma.</p>
+            
+            <div class="form-group">
+                <label>Seleziona la Struttura per Configurare il Tablet</label>
+                <select id="configStructSelect" onchange="loadStructDocsForConfig()" class="form-input">
+                    <option value="">-- Seleziona Struttura --</option>
+                </select>
+            </div>
+            
+            <div id="configDocsList" style="margin-bottom: 20px; background: rgba(0,0,0,0.2); padding: 15px; border-radius: 8px; border: 1px solid var(--border-line);">
+                <div style="color:var(--text-muted); font-size:12px; text-align:center;">Seleziona una struttura dal menu a tendina.</div>
+            </div>
+
+            <button onclick="saveActiveDocsConfig()" style="width: 100%; padding: 15px; background: var(--accent); color: #0f172a; font-weight: 900; border: none; border-radius: 8px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 14px; transition: 0.3s;">
+                <i class="material-icons-round">save</i> SALVA IMPOSTAZIONE PER LA RECEPTION
+            </button>
+        </div>
+        <div class="card">
+            <h2>File Intestati e Generati (Archivio)</h2>
+            <p style="font-size:13px; color:var(--text-muted)">Questi sono tutti i file che hai "trasformato" a partire dai modelli. Sono salvati nelle cartelle virtuali delle strutture.</p>
+            
+            <div id="generatedDocsContainer" style="margin-top:20px;">
+                <div style="text-align:center; padding:20px; color:var(--text-muted);">Scansione database in corso...</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="templateModal" class="modal-overlay" onclick="if(event.target===this)this.style.display='none'">
+    <div class="modal-box" style="max-width: 800px; width:95%;">
+        <h3 id="tplModalTitle" style="border:none; color:var(--gold); margin-top:0;">Nuovo File Vergine</h3>
+        <div class="form-group">
+            <label>Nome del Documento</label>
+            <input type="text" id="tplName" placeholder="Inserisci il titolo del modello">
+        </div>
+        <div class="form-group">
+            <label>Testo Base del Documento</label>
+            <textarea id="tplContent" rows="18" style="resize:vertical; font-family:monospace; font-size:12px;"></textarea>
+            <div style="font-size:11px; color:var(--accent); margin-top:5px; background:rgba(56, 189, 248, 0.1); padding:10px; border-radius:8px;">
+                <b>Marcatori Autocompilanti utilizzabili:</b><br>
+                {{NOME_STRUTTURA}}, {{SOCIETA_GESTORE}}, {{INDIRIZZO}}, {{CITTA}}, {{PIVA}}, {{TELEFONO}}, {{EMAIL}}
+            </div>
+        </div>
+        <div style="display:flex; gap:10px; margin-top:20px">
+            <button class="btn-action btn-outline w-100" onclick="document.getElementById('templateModal').style.display='none'">ANNULLA</button>
+            <button class="btn-action w-100" onclick="docApp.saveTemplate()"><i class="material-icons-round">save</i> SALVA</button>
+        </div>
+    </div>
+</div>
+
+<div id="transformModal" class="modal-overlay" onclick="if(event.target===this)this.style.display='none'">
+    <div class="modal-box" style="max-width: 800px; width:95%;">
+        <h3 style="border:none; color:var(--accent); margin-top:0;"><i class="material-icons-round" style="vertical-align:middle">auto_fix_high</i> Trasforma e Collega</h3>
+        <p style="font-size:13px; color:var(--text-muted); margin-bottom:15px;">Seleziona la struttura a cui intestare questo documento.</p>
+        <div class="form-group">
+            <label>Seleziona Struttura</label>
+            <select id="transStruct" onchange="docApp.generatePreview()"></select>
+        </div>
+        <div class="form-group">
+            <label>Anteprima Testo Pronto</label>
+            <textarea id="transPreview" rows="15" style="resize:vertical; font-family:monospace; font-size:12px; background:var(--bg-body)"></textarea>
+        </div>
+        <div style="display:flex; gap:10px; margin-top:20px">
+            <button class="btn-action btn-outline w-100" onclick="document.getElementById('transformModal').style.display='none'">ANNULLA</button>
+            <button class="btn-action btn-green w-100" onclick="docApp.saveTransformed()"><i class="material-icons-round">assignment_turned_in</i> COLLEGA ALLA STRUTTURA</button>
+        </div>
+    </div>
+</div>
+
+<script src="Admin_Documenti.js"></script>
+
+</body>
+</html>

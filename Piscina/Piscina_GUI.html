@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Agenda Piscina - TOUCH WELNESS</title>
+<link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
+<script src="Piscina_DB.js"></script>
+<script src="Piscina_Logic.js"></script>
+<script src="../Menu.js"></script>
+<style>
+  :root { --primary: #0f172a; --accent: #38bdf8; --gold: #fbbf24; --bg: #f8fafc; --toast-blue: #2563eb; --green: #10b981; --line: #cbd5e1; }
+  * { box-sizing: border-box; }
+  body { font-family: -apple-system, sans-serif; background: var(--bg); margin: 0; display: flex; flex-direction: column; height: 100vh; overflow: hidden; color: #1e293b; }
+  
+  .navbar { background: var(--primary); color: white; padding: 12px 20px; display: flex; justify-content: space-between; align-items: center; z-index: 20; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+  .btn-menu { background: var(--gold); color: var(--primary); border: none; padding: 8px 15px; border-radius: 8px; font-weight: 800; cursor: pointer; display:flex; align-items:center; gap:5px; }
+  input[type="date"] { padding: 6px; border-radius: 6px; border: none; font-weight: bold; font-family: inherit; }
+
+  .layout { display: flex; gap: 15px; flex: 1; overflow: hidden; padding: 15px; }
+  .col-left { width: 280px; display: flex; flex-direction: column; gap: 15px; overflow-y: auto; }
+  .col-right { flex: 1; display: flex; flex-direction: column; gap: 15px; overflow: hidden; }
+
+  .box { background: white; padding: 15px; border-radius: 12px; border: 1px solid #e2e8f0; box-shadow: 0 2px 5px rgba(0,0,0,0.02); }
+  .box h3 { margin: 0 0 10px 0; font-size: 14px; color: var(--primary); border-bottom: 2px solid var(--gold); padding-bottom: 5px; }
+  
+  input, select, textarea { width: 100%; padding: 10px; border: 1px solid var(--line); border-radius: 8px; font-size: 13px; font-family: inherit; margin-bottom: 5px; outline: none; transition: 0.2s; }
+  input:focus, select:focus { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.1); }
+  label { font-size: 10px; font-weight: bold; color: #64748b; text-transform: uppercase; display: block; margin-bottom: 2px; }
+  input[type="time"] { font-size: 16px; font-weight: bold; color: var(--primary); background: #f0f9ff; text-align: center; }
+
+  .btn-search { background: var(--primary); color: white; border: none; border-radius: 8px; padding: 0 12px; cursor: pointer; }
+  .btn-add { width: 100%; padding: 12px; background: var(--primary); color: white; border: none; font-weight: bold; border-radius: 10px; cursor: pointer; margin-top: 5px; transition: 0.2s; }
+  .btn-add.editing { background: var(--gold); color: var(--primary); }
+
+  .summary-panel, .list-panel { background: white; border-radius: 12px; overflow: hidden; border: 1px solid var(--line); box-shadow: 0 2px 5px rgba(0,0,0,0.02); display: flex; flex-direction: column; }
+  .summary-header { background: var(--primary); color: white; padding: 10px; font-weight: bold; font-size: 12px; display: flex; justify-content: space-between; align-items: center; }
+  .sum-table, .row { width: 100%; border-collapse: collapse; font-size: 12px; text-align: center; }
+  .sum-table th { background: #f8fafc; padding: 8px; color: #64748b; border-bottom: 2px solid var(--line); border-right: 1px solid #e2e8f0; }
+  .sum-table td { padding: 8px; border-bottom: 1px solid #f1f5f9; font-weight: bold; border-right: 1px solid #e2e8f0; }
+
+  .list-head { background: #f1f5f9; color: #64748b; padding: 10px; display: grid; grid-template-columns: 60px 50px 1fr 40px 80px 100px 40px 40px; font-size: 11px; font-weight: bold; text-transform: uppercase; align-items: center; border-bottom: 2px solid var(--line); }
+  .list-body { flex: 1; overflow-y: auto; }
+  .row { padding: 10px; display: grid; grid-template-columns: 60px 50px 1fr 40px 80px 100px 40px 40px; border-bottom: 1px solid #cbd5e1; align-items: center; font-size: 13px; transition: 0.1s; }
+  .row:hover { background: #f8fafc; }
+
+  .badge { padding: 3px 6px; border-radius: 4px; font-size: 10px; font-weight: bold; text-align: center; }
+  .bg-pool { background: #e0f2fe; color: #0284c7; }
+  .bg-spa { background: #fce7f3; color: #db2777; }
+  .bg-out { background: #dcfce7; color: #16a34a; }
+
+  .btn-check { border: 1px solid var(--line); background: white; color: #94a3b8; padding: 4px 10px; border-radius: 15px; cursor: pointer; font-size: 10px; font-weight: bold; display: flex; align-items: center; gap: 5px; width: 100%; justify-content: center; transition: 0.2s; }
+  .btn-check.checked { background: var(--green); color: white; border-color: var(--green); }
+  .btn-icon { border: none; background: none; cursor: pointer; opacity: 0.7; transition: 0.2s; }
+  .btn-icon:hover { opacity: 1; transform: scale(1.1); }
+  
+  .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 100; align-items: center; justify-content: center; backdrop-filter: blur(2px); }
+  .modal-box { background: white; padding: 25px; border-radius: 15px; width: 320px; text-align: center; box-shadow: 0 20px 50px rgba(0,0,0,0.2); }
+  .modal-btn { width: 100%; padding: 12px; margin-top: 10px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; }
+
+  #toastBlue { visibility: hidden; min-width: 250px; background-color: var(--toast-blue); color: #fff; text-align: center; border-radius: 10px; padding: 16px; position: fixed; z-index: 9999; right: 30px; bottom: 30px; font-size: 14px; font-weight: bold; box-shadow: 0 10px 25px rgba(37, 99, 235, 0.4); display: flex; align-items: center; gap: 10px; opacity: 0; transition: opacity 0.5s, bottom 0.5s; }
+  #toastBlue.show { visibility: visible; opacity: 1; bottom: 30px; }
+
+  /* =========================================================
+     OTTIMIZZAZIONE MOBILE (Smartphone) - Non intacca il PC
+     ========================================================= */
+  @media (max-width: 768px) {
+      .navbar { padding: 8px 10px; }
+      .navbar > div:first-child { font-size: 14px; }
+      .btn-menu { font-size: 11px; padding: 6px 10px; }
+
+      /* Sblocca il layout per permettere lo scorrimento verticale */
+      .layout { flex-direction: column; overflow-y: auto; display: block; padding: 10px; }
+      .col-left, .col-right { width: 100%; height: auto; display: block; overflow: visible; }
+      .col-left { margin-bottom: 20px; }
+      
+      /* Adatta la tabella alla larghezza del telefono */
+      .list-head, .row { 
+          grid-template-columns: 40px 35px 1fr 30px 50px 70px 35px 35px; 
+          font-size: 10px; padding: 8px 4px; gap: 2px;
+      }
+      .btn-check { padding: 2px 5px; font-size: 9px; }
+  }
+</style>
+</head>
+<body>
+
+<div id="toastBlue"><i class="material-icons-round">info</i> <span id="toastMsg">Notifica</span></div>
+
+<div class="navbar">
+  <div style="font-weight:900; color:var(--gold); letter-spacing:1px">AGENDA PISCINA</div>
+  <div style="display:flex; gap:10px; align-items:center">
+    <input type="date" id="poolDate">
+    <button class="btn-menu" onclick="window.toggleMenu(event)">MENU <i class="material-icons-round">menu</i></button>
+  </div>
+</div>
+
+<div class="layout">
+    <div class="col-left">
+        <div class="box" style="border-left: 4px solid var(--gold)">
+            <h3>CERCA CAMERA</h3>
+            <div style="display:flex; gap:5px">
+                <input type="number" id="searchCam" placeholder="N. Camera" style="margin:0" onkeydown="if(event.key==='Enter') searchRoom()">
+                <button class="btn-search" onclick="searchRoom()"><i class="material-icons-round">search</i></button>
+            </div>
+        </div>
+
+        <div class="box">
+            <h3 id="formTitle">NUOVO INGRESSO (2H)</h3>
+            <input type="hidden" id="pId">
+            <label>Orario Inizio</label><input type="time" id="pOra">
+            <div style="display:grid; grid-template-columns: 2fr 1fr; gap:5px">
+                <div><label>Camera</label><input type="number" id="pCam" onkeydown="if(event.key==='Enter') addEntry()"></div>
+                <div><label>Pax</label><input type="number" id="pPers" value="2" onkeydown="if(event.key==='Enter') addEntry()"></div>
+            </div>
+            <label>Cognome</label><input type="text" id="pCog" onkeydown="if(event.key==='Enter') addEntry()">
+            <label>Area</label>
+            <select id="pArea">
+                <option value="Piscina">Piscina</option>
+                <option value="SPA">SPA (Percorso)</option>
+                <option value="Esterni">Esterni</option>
+            </select>
+            <label>Note</label><input type="text" id="pNote" onkeydown="if(event.key==='Enter') addEntry()">
+
+            <button class="btn-add" id="btnSave" onclick="addEntry()">SALVA</button>
+            <button onclick="resetForm()" id="btnCancel" style="display:none; width:100%; margin-top:5px; border:none; background:none; color:#ef4444; cursor:pointer; font-size:11px;">Annulla Modifica</button>
+        </div>
+        
+        <button onclick="exportSimpleExcel()" style="width:100%; padding:12px; background:#10b981; color:white; border:none; border-radius:8px; font-weight:bold; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:8px">
+            <i class="material-icons-round">download</i> EXPORT EXCEL
+        </button>
+    </div>
+
+    <div class="col-right">
+        <div class="summary-panel">
+            <div class="summary-header">
+                <span>OCCUPAZIONE REALE (ENTRATE + PERMANENZA)</span>
+                <i class="material-icons-round">timelapse</i>
+            </div>
+            <table class="sum-table">
+                <thead>
+                    <tr><th>FASCIA</th><th style="color:#0284c7">PISCINA</th><th style="color:#db2777">SPA</th><th>TOTALE</th><th style="color:var(--green)">CHECK-IN</th></tr>
+                </thead>
+                <tbody id="slotTable"></tbody>
+            </table>
+        </div>
+
+        <div class="list-panel">
+            <div class="list-head">
+                <div>Ora</div><div>Cam</div><div>Ospite</div><div>Pax</div><div>Area</div><div>Check-In</div><div>Mod</div><div>Del</div>
+            </div>
+            <div class="list-body" id="poolGrid"></div>
+        </div>
+    </div>
+</div>
+
+<div id="actionModal" class="modal-overlay">
+    <div class="modal-box">
+        <h3 id="modalTitle">Risultato Ricerca</h3>
+        <p id="modalMsg" style="font-size:13px; color:#64748b; margin-bottom:20px"></p>
+        <div id="modalBtns" style="display:flex; flex-direction:column; gap:5px"></div>
+        <button class="modal-btn" style="background:#f1f5f9; color:#64748b; margin-top:15px" onclick="closeModal()">Chiudi</button>
+    </div>
+</div>
+
+<script src="Piscina_Backup.js"></script>
+<script>
+    document.getElementById("poolDate").valueAsDate = new Date();
+    document.getElementById("poolDate").onchange = loadPoolData;
+    const now = new Date();
+    document.getElementById("pOra").value = now.toTimeString().split(' ')[0].substring(0,5);
+    initDB();
+    
+    document.addEventListener('keydown', function(event) {
+        if (event.key === "Escape") { closeModal(); resetForm(); }
+    });
+</script>
+</body>
+</html>

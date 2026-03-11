@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Log Attività Reception - TOUCH WELNESS</title>
+<link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
+<script src="Menu.js"></script>
+<style>
+  :root { 
+      --bg-body: #0f172a; --bg-panel: #1e293b; --border-line: #334155; 
+      --text-main: #f8fafc; --text-muted: #94a3b8; 
+      --accent: #38bdf8; --gold: #fbbf24; --green: #10b981; --red: #ef4444; --purple: #a855f7;
+  }
+
+  body { font-family: -apple-system, sans-serif; background: var(--bg-body); margin: 0; display: flex; flex-direction: column; height: 100vh; color: var(--text-main); }
+  * { box-sizing: border-box; }
+
+  .navbar { background: var(--bg-body); padding: 12px 20px; display: flex; justify-content: space-between; align-items: center; z-index: 20; border-bottom: 1px solid var(--border-line); flex-shrink: 0; }
+  .btn-menu { background: var(--gold); color: #000; border: none; padding: 8px 15px; border-radius: 8px; font-weight: 900; cursor: pointer; display:flex; align-items:center; gap:5px; font-size: 13px; }
+
+  .main-content { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; align-items: center; }
+  .list-container { width: 100%; max-width: 800px; display: flex; flex-direction: column; gap: 15px; }
+
+  .log-card { background: var(--bg-panel); border: 1px solid var(--border-line); border-left: 5px solid var(--border-line); border-radius: 12px; padding: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.3); }
+  .log-card.pending { border-left-color: var(--accent); }
+  .log-card.accepted { border-left-color: var(--green); }
+  .log-card.rejected { border-left-color: var(--red); }
+  
+  .log-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px; border-bottom: 1px solid var(--border-line); padding-bottom: 10px; }
+  .badge { padding: 4px 8px; border-radius: 6px; font-size: 11px; font-weight: bold; border: 1px solid transparent; }
+  .b-pending { background: rgba(56, 189, 248, 0.1); color: var(--accent); border-color: var(--accent); }
+  .b-accepted { background: rgba(16, 185, 129, 0.1); color: var(--green); border-color: var(--green); }
+  .b-rejected { background: rgba(239, 68, 68, 0.1); color: var(--red); border-color: var(--red); }
+
+  .log-details { font-size: 14px; color: var(--text-main); margin-bottom: 10px; line-height: 1.5; }
+  .log-msg { background: rgba(0,0,0,0.2); border: 1px dashed var(--border-line); padding: 10px; border-radius: 8px; font-size: 12px; color: var(--text-muted); }
+
+  .action-btn { background: transparent; border: 1px solid var(--red); color: var(--red); padding: 8px 15px; border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 12px; display: flex; align-items: center; gap: 5px; transition: 0.2s; }
+  .action-btn:hover { background: rgba(239, 68, 68, 0.1); }
+
+  #toastBlue { visibility: hidden; min-width: 250px; background: var(--purple); color: #fff; text-align: center; border-radius: 8px; padding: 16px; position: fixed; right: 30px; bottom: 30px; z-index: 9999; font-size: 13px; font-weight: bold; opacity: 0; transition: 0.5s; box-shadow: 0 10px 20px rgba(0,0,0,0.5); }
+  #toastBlue.show { visibility: visible; opacity: 1; bottom: 40px; }
+</style>
+</head>
+<body>
+
+<div id="toastBlue"><span id="toastMsg">Notifica</span></div>
+
+<div class="navbar">
+  <div style="font-weight:900; color:var(--text-main); letter-spacing:1px">LOG ATTIVITÀ <span style="font-size:10px; color:var(--purple)">RECEPTION</span></div>
+  <button class="btn-menu" onclick="window.toggleMenu(event)">MENU <i class="material-icons-round">menu</i></button>
+</div>
+
+<div class="main-content">
+    <div style="width:100%; max-width:800px; margin-bottom:20px; color:var(--text-muted); font-size:13px; text-align:center;">
+        Qui trovi lo storico completo di tutte le richieste inoltrate alla SPA e il loro esito finale.
+    </div>
+    <div class="list-container" id="listView">
+        <div style="text-align:center; padding:40px; color:var(--text-muted); font-weight:bold;">Sincronizzazione in corso...</div>
+    </div>
+</div>
+
+<script>
+    const fbConfig = { apiKey: "AIzaSyCrDuK7SWHdbzrJR-pNpxmRwGnZgV2Dd2Y", authDomain: "touch-welness-massage.firebaseapp.com", databaseURL: "https://touch-welness-massage-default-rtdb.europe-west1.firebasedatabase.app", projectId: "touch-welness-massage" };
+    if (!firebase.apps.length) firebase.initializeApp(fbConfig);
+
+    const localStructId = localStorage.getItem("tw_structure_id");
+    if(!localStructId) window.location.href="../login.html";
+
+    function showToast(msg) { const x = document.getElementById("toastBlue"); if(x) { x.className = "show"; document.getElementById("toastMsg").innerText = msg; setTimeout(() => x.className = x.className.replace("show", ""), 3000); } }
+
+    let allRequests = {};
+
+    firebase.database().ref('MASTER_ADMIN_DB/structures_data/' + localStructId).on('value', snap => {
+        const data = snap.val() || {};
+        allRequests = data.requests || {};
+        const logsObj = data.requests_log || {};
+        
+        renderLogList(logsObj);
+    });
+
+    function renderLogList(logsObj) {
+        const container = document.getElementById("listView");
+        const logs = Object.values(logsObj).sort((a,b) => b.timestamp - a.timestamp);
+
+        if(logs.length === 0) {
+            container.innerHTML = `<div style="text-align:center; padding:40px; color:var(--text-muted);">Nessuna attività registrata.</div>`;
+            return;
+        }
+
+        container.innerHTML = logs.map(l => {
+            let cardClass = "pending"; let badgeClass = "b-pending"; let badgeText = "IN ATTESA SPA";
+            
+            if (l.type.includes('accepted')) { cardClass = "accepted"; badgeClass = "b-accepted"; badgeText = "CONFERMATO"; }
+            if (l.type.includes('rejected') || l.type.includes('deleted')) { cardClass = "rejected"; badgeClass = "b-rejected"; badgeText = "ANNULLATO"; }
+
+            // Se è in attesa, mostriamo il tasto Annulla Rapido
+            let actionHtml = "";
+            if(cardClass === "pending") {
+                actionHtml = `<button class="action-btn" onclick="cancelRequestFromLog('${l.reqId}', '${l.date.split(' ')[0]}')"><i class="material-icons-round" style="font-size:14px">delete</i> RITIRA RICHIESTA</button>`;
+            }
+
+            return `
+            <div class="log-card ${cardClass}">
+                <div class="log-header">
+                    <div>
+                        <b style="color:var(--text-main); font-size:15px;">Camera ${l.cam || '?'}</b>
+                        <div style="font-size:11px; color:var(--text-muted); margin-top:3px;"><i class="material-icons-round" style="font-size:12px; vertical-align:middle">calendar_today</i> ${l.date}</div>
+                    </div>
+                    <span class="badge ${badgeClass}">${badgeText}</span>
+                </div>
+                <div class="log-details">
+                    <b>Trattamento:</b> ${l.serv || 'N.D.'}<br>
+                    <b style="color:var(--accent)">Orario:</b> ${l.ora || 'N.D.'}
+                </div>
+                <div class="log-msg">
+                    <b>Esito Operazione:</b><br>${l.msg}
+                </div>
+                ${actionHtml ? `<div style="margin-top:15px; display:flex; justify-content:flex-end;">${actionHtml}</div>` : ''}
+            </div>
+            `;
+        }).join('');
+    }
+
+    function cancelRequestFromLog(reqId, rawDateStr) {
+        if(!confirm("Vuoi annullare definitivamente questa richiesta?")) return;
+        
+        // Conversione data dal formato italiano gg/mm/yyyy a yyyy-mm-dd
+        let parts = rawDateStr.split('/');
+        let dbDate = rawDateStr;
+        if(parts.length === 3) dbDate = `${parts[2]}-${parts[1]}-${parts[0]}`; 
+
+        const dbRefLocal = firebase.database().ref('MASTER_ADMIN_DB/structures_data/' + localStructId);
+        
+        dbRefLocal.child('requests').child(dbDate).once('value').then(snap => {
+            let reqs = snap.val() || [];
+            if(!Array.isArray(reqs)) reqs = Object.values(reqs);
+            
+            const reqToDel = reqs.find(x => x && x.id === reqId);
+            reqs = reqs.filter(x => x && x.id !== reqId);
+            
+            dbRefLocal.child('requests').child(dbDate).set(reqs).then(() => {
+                if(reqToDel) {
+                    dbRefLocal.child('requests_log').child(reqId).update({
+                        type: 'deleted-after',
+                        msg: `Hai ritirato e annullato la richiesta.`,
+                        date: new Date().toLocaleString('it-IT'),
+                        timestamp: Date.now()
+                    });
+                }
+                showToast("Richiesta Ritirata.");
+            });
+        });
+    }
+</script>
+</body>
+</html>

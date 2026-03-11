@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Login - TOUCH WELNESS</title>
+<link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
+<style>
+  :root { --primary: #0f172a; --accent: #38bdf8; --gold: #fbbf24; --bg: #f8fafc; }
+  body { font-family: -apple-system, sans-serif; background: var(--bg); margin: 0; display: flex; justify-content: center; align-items: center; height: 100vh; color: #334155; }
+  .login-box { background: white; padding: 40px; border-radius: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); width: 90%; max-width: 400px; text-align: center; }
+  .logo { font-size: 24px; font-weight: 900; color: var(--primary); margin-bottom: 5px; }
+  .subtitle { font-size: 13px; color: #64748b; margin-bottom: 30px; letter-spacing: 1px; }
+  input { width: 100%; padding: 15px; margin-bottom: 15px; border: 1px solid #cbd5e1; border-radius: 10px; font-size: 15px; outline: none; box-sizing: border-box; text-align: center; }
+  input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.1); }
+  .btn-login { width: 100%; padding: 15px; background: var(--primary); color: white; border: none; border-radius: 10px; font-weight: bold; font-size: 16px; cursor: pointer; transition: 0.2s; margin-top: 10px; }
+  .btn-login:hover { opacity: 0.9; transform: translateY(-2px); }
+  .forgot-link { display: block; margin-top: 20px; font-size: 13px; color: var(--accent); text-decoration: none; cursor: pointer; font-weight: bold; }
+  
+  .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 2000; align-items: center; justify-content: center; backdrop-filter: blur(2px); }
+  .modal-box { background: white; padding: 30px; border-radius: 20px; width: 90%; max-width: 400px; text-align: center; }
+  .btn-close { width: 100%; padding: 10px; background: none; border: none; color: #ef4444; cursor: pointer; margin-top: 5px; font-weight:bold; }
+  
+  #toast { visibility: hidden; min-width: 250px; background: #10b981; color: white; text-align: center; border-radius: 10px; padding: 16px; position: fixed; bottom: 30px; font-weight: bold; z-index: 3000; opacity: 0; transition: 0.5s; box-shadow: 0 5px 15px rgba(0,0,0,0.2); }
+  #toast.show { visibility: visible; opacity: 1; }
+</style>
+</head>
+<body>
+
+<div id="toast">Notifica</div>
+
+<div class="login-box">
+    <div class="logo">TOUCH WELNESS</div>
+    <div class="subtitle">SISTEMA GESTIONALE</div>
+    
+    <input type="text" id="strNick" placeholder="Username (SPA o Reception)" onkeydown="if(event.key==='Enter') doLogin()">
+    <input type="password" id="strPwd" placeholder="Password" onkeydown="if(event.key==='Enter') doLogin()">
+    <button class="btn-login" onclick="doLogin()">ACCEDI</button>
+    
+    <span class="forgot-link" onclick="openRecovery()">Hai dimenticato la password?</span>
+</div>
+
+<div id="recModal" class="modal-overlay" onclick="if(event.target===this) this.style.display='none'">
+    <div class="modal-box">
+        <h3 style="color:var(--primary); margin-top:0">Recupera Password</h3>
+        <p style="font-size:13px; color:#64748b; margin-bottom:20px">Inserisci l'email o il tuo Username. Invieremo una notifica alla Direzione per sbloccare l'account.</p>
+        <input type="text" id="recEmail" placeholder="Email o Username">
+        <button class="btn-login" style="background:var(--accent); margin-top:0" onclick="sendRecovery()">INVIA RICHIESTA</button>
+        <button class="btn-close" onclick="document.getElementById('recModal').style.display='none'">ANNULLA</button>
+    </div>
+</div>
+
+<script>
+    const firebaseConfig = { apiKey: "AIzaSyCrDuK7SWHdbzrJR-pNpxmRwGnZgV2Dd2Y", authDomain: "touch-welness-massage.firebaseapp.com", databaseURL: "https://touch-welness-massage-default-rtdb.europe-west1.firebasedatabase.app", projectId: "touch-welness-massage" };
+    if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+
+    function showToast(msg, isError = false) {
+        const t = document.getElementById("toast"); t.innerText = msg; t.style.background = isError ? "#ef4444" : "#10b981"; t.className = "show"; setTimeout(() => t.className = t.className.replace("show", ""), 3000);
+    }
+
+    function doLogin() {
+        const nick = document.getElementById('strNick').value.trim(); const pwd = document.getElementById('strPwd').value.trim();
+        if(!nick || !pwd) return showToast("Inserisci Username e Password", true);
+
+        // Super Admin Bypass
+        if (nick === "admin" && pwd === "171192") {
+            localStorage.setItem("tw_token", "AdminMaster"); showToast("Benvenuto Direttore!"); setTimeout(() => { window.location.href = "admin/admin.html"; }, 1000); return;
+        }
+
+        showToast("Verifica credenziali in corso...", false);
+        
+        firebase.database().ref('MASTER_ADMIN_DB').once('value').then(snap => {
+            const data = snap.val() || {};
+            const users = data.users || {};
+            const structures = data.structures || {};
+            
+            let foundUser = null;
+            let foundSpaClient = null;
+            let foundRecClient = null;
+
+            // 1. Cerca nelle Credenziali Master della Struttura (SPA & RECEPTION)
+            for (const [key, struct] of Object.entries(structures)) {
+                if (struct.archived) continue;
+                const info = struct.info || {};
+                
+                // Match Client SPA
+                if (info.spaNick === nick && info.spaPass === pwd) {
+                    foundSpaClient = struct; break;
+                }
+                
+                // Match Client Reception (Supporta anche vecchi campi per sicurezza)
+                if ((info.recNick === nick && info.recPass === pwd) || (info.structNick === nick && info.structPass === pwd)) {
+                    foundRecClient = struct; break;
+                }
+            }
+
+            // 2. Se non è il client generico, cerca tra i collaboratori (Per chi accede da Smartphone)
+            if(!foundSpaClient && !foundRecClient) {
+                for (const [key, user] of Object.entries(users)) { 
+                    if (user.nick === nick && user.pass === pwd) { foundUser = user; break; } 
+                }
+            }
+
+            // SMISTAMENTO AUTOMATICO DEL LOGIN
+            if (foundSpaClient) {
+                localStorage.setItem("tw_structure_id", foundSpaClient.id); 
+                localStorage.setItem("tw_user", "Staff SPA - " + foundSpaClient.name); 
+                localStorage.setItem("tw_token", "SessionActive");
+                showToast("Accesso SPA Consentito!"); 
+                setTimeout(() => { window.location.href = "index.html?auth=1"; }, 1000);
+            
+            } else if (foundRecClient) {
+                localStorage.setItem("tw_structure_id", foundRecClient.id); 
+                localStorage.setItem("tw_user", "Ricevimento - " + foundRecClient.name); 
+                localStorage.setItem("tw_token", "SessionActive");
+                showToast("Accesso Ricevimento Consentito!"); 
+                setTimeout(() => { window.location.href = "reception/index.html?auth=1"; }, 1000);
+            
+            } else if (foundUser) {
+                localStorage.setItem("tw_structure_id", foundUser.structureId); 
+                localStorage.setItem("tw_user", foundUser.nick); 
+                localStorage.setItem("tw_token", "SessionActive");
+                showToast("Accesso Operatore Consentito!"); 
+                setTimeout(() => { window.location.href = "index.html?auth=1"; }, 1000);
+            
+            } else { 
+                showToast("Credenziali non valide", true); 
+            }
+            
+        }).catch(err => { showToast("Errore di connessione", true); });
+    }
+
+    function openRecovery() { document.getElementById('recModal').style.display='flex'; }
+    function sendRecovery() {
+        const data = document.getElementById('recEmail').value.trim();
+        if(!data) return showToast("Inserisci un dato valido", true);
+        firebase.database().ref('MASTER_ADMIN_DB/password_recoveries').push({ user_input: data, date: new Date().toLocaleString('it-IT'), status: 'Da gestire' }).then(() => {
+            document.getElementById('recModal').style.display='none'; showToast("Richiesta inviata alla Direzione!");
+        });
+    }
+</script>
+</body>
+</html>
